@@ -1,0 +1,79 @@
+# requirements interpretation
+# assumptions
+# ambiguities
+# the business rules you chose (future dates, account deactivation, money representation,so on)
+# architecture
+# project structure
+# data model
+# persistence decision with justification
+# error-handling strategy
+# testing strategy
+# explicit out-of-scope decisions. 
+# The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
+
+
+1. Requirements Interpretation
+
+• The Trap: Copying and pasting the functional features list from your prompt.
+• How to Write It: Translate the material into specific system behaviors. Group them logically (e.g., User Authentication, Core Processing, Reporting).
+• The Blueprint: Use the User Story format ("As a [User Role], I want to [Action], so that [Value]") or a Functional Capabilities list. For instance, if the prompt says "Users should be able to upload profile pictures," you interpret it as: "The system must validate image payloads, restrict uploads to JPEG/PNG under 5MB, and store them securely."
+
+- Accounts:
+
+• Req-1: Account Creation & Metadata
+    • The system must allow users to create multiple concurrent financial accounts.
+    • The system must enforce and persist the following attributes for every account: a unique system identifier (ID), a user-defined account name, an account type (e.g., Bank, Savings, Cash, Mobile Wallet), and a creation timestamp.
+
+• Req-2: Account Retrieval (View & Inspect)
+	• The system must provide a list view of all active accounts belonging to the authenticated user.
+	• The system must allow users to inspect a specific account to view its details, current balance, and associated transaction history.
+
+• Req-3: Account Modification
+	• The system must allow users to update the name of an existing account.
+
+• Req-4: Account Deactivation
+	• The system must allow users to deactivate an account, changing its state to inactive and removing it from the default active accounts list view.
+	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 4: Business Rules).
+
+- Income:
+- Req-1: Deposits and Metadata
+    - The system must allow users to perform deposits.
+    - Deposit transactions must hold relevant details including specific account credited, credited amount, time of transaction and concise transaction description
+- Req-2: Account balance update
+    - The account in question must update it current balance correctly. 
+- Req-3: Transaction logging
+    - Successful deposit transactions must be logged in the transaction history.
+
+- Expenses
+Users must be able to record withdrawals. The records must contain;
+- account debited
+- amount withdrawn
+- expense category
+- transaction time
+- concise transaction description
+The account must also update its balance correctly and the transaction must be logged in the transaction history.
+
+- Transfers
+Users must be able to move money between accounts without inflating the net balance. Transfer records must include;
+- accounts involved (source(sender) and target(reciever))
+- transaction time
+- transferred amount
+Both accounts invloved must have their balances updated accordingly and the transaction must become part of the transaction history.
+
+- Transaction history
+Users must be able to see details about all their transactions. Each transaction must provides useful information including;
+- transaction type
+- transaction time
+- transaction amount
+- account(s) involved in the transaction
+- concise description about the transaction
+
+- Search and filtering
+Users must be able to search for specific transactions from among a list of transactions. They must be able to search by the following criteria;
+- date
+- transaction type(either deposit, transfer or withdrawal)
+- transactions made by a specific account
+- transactions in a speific category
+- transactions within a specified range of amount
+The application must show relevant feedback when no results match requested criteria.
+

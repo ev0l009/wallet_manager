@@ -7,6 +7,7 @@
     • The system must allow users to create multiple concurrent financial accounts.
     • The system must enforce and persist the following attributes for every account: a unique system identifier (ID), a user-defined account name, an account type (e.g., Bank, Savings, Cash, Mobile Wallet), and a creation timestamp.
 
+
 • Req-2: Account Retrieval (View & Inspect)
 	• The system must provide a list view of all active accounts belonging to the user.
 	• The system must allow users to inspect a specific account to view its details, current balance, and associated transaction history.
@@ -169,8 +170,23 @@
 	• The system must evaluate all timestamps against the current system time adjusted to West Africa Time (WAT / UTC+1).
 	• The system must explicitly reject any transaction containing a timestamp that sits in the future relative to the current real-time clock execution window.
 
-# assumptions
+
+3. Assumptions
+
+• ASM-01: Single-User Execution Environment
+	• The system assumes an isolated, local execution architecture dedicated to a single user profile. Consequently, remote user authentication layers, role-based access controls (RBAC), and session tokens are completely decoupled from the system's current design scope.
+• ASM-02: Ex Post Facto Ledger Recording
+	• The system assumes that all manually input data reflects transactions that have already concluded in the real world. This baseline behavior justifies the strict programmatic rejection of future-dated timestamps.
+• ASM-03: Single Threaded Execution & File Access
+	• The system assumes synchronous, single-threaded execution by one terminal process at a time. It assumes no concurrent file-locking conflicts or race conditions will occur on the host machine.
+• ASM-04: Environment and Runtime Compatibility
+	• It is assumed that the application runs within a standard command-line interface terminal (CLI) with an active Python 3.10 (or higher) runtime environment installed on the host operating system.
+
+
 # ambiguities
+
+4. Ambiguities
+
 # architecture
 # project structure
 # data model

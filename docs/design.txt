@@ -187,6 +187,14 @@
 
 4. Ambiguities
 
+📦 Variables
+🔢 Data Types
+➕ Operators
+⌨️ Input / Output
+🔤 Strings
+🔀 Conditionals
+🔁 Loops
+
 # architecture
 # project structure
 # data model

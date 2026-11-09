@@ -166,3 +166,9 @@ To make your document look highly professional, adopt standard engineering requi
 • MAY: Indicates a purely optional or nice-to-have feature.
 By writing your interpretations this way, you prove to whoever is grading or reviewing your document that you aren't just reading the project prompt—you are actively figuring out the exact code blocks, validations, and database constraints you need to build.
 To help tailor this, what is one specific requirement or feature from your actual project prompt? Paste a sentence or two, and we can translate it into a professional Requirements Interpretation bullet point together!
+
+
+
+• The Trap: Copying and pasting the functional features list from your prompt.
+• How to Write It: Translate the material into specific system behaviors. Group them logically (e.g., User Authentication, Core Processing, Reporting).
+• The Blueprint: Use the User Story format ("As a [User Role], I want to [Action], so that [Value]") or a Functional Capabilities list. For instance, if the prompt says "Users should be able to upload profile pictures," you interpret it as: "The system must validate image payloads, restrict uploads to JPEG/PNG under 5MB, and store them securely."

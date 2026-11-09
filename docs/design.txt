@@ -1,4 +1,4 @@
-# requirements interpretation
+# requirements interpretation ##
 # assumptions
 # ambiguities
 # the business rules you chose (future dates, account deactivation, money representation,so on)
@@ -14,11 +14,7 @@
 
 1. Requirements Interpretation
 
-• The Trap: Copying and pasting the functional features list from your prompt.
-• How to Write It: Translate the material into specific system behaviors. Group them logically (e.g., User Authentication, Core Processing, Reporting).
-• The Blueprint: Use the User Story format ("As a [User Role], I want to [Action], so that [Value]") or a Functional Capabilities list. For instance, if the prompt says "Users should be able to upload profile pictures," you interpret it as: "The system must validate image payloads, restrict uploads to JPEG/PNG under 5MB, and store them securely."
-
-- Accounts:
+1.1 Accounts:
 
 • Req-1: Account Creation & Metadata
     • The system must allow users to create multiple concurrent financial accounts.
@@ -35,7 +31,7 @@
 	• The system must allow users to deactivate an account, changing its state to inactive and removing it from the default active accounts list view.
 	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 4: Business Rules).
 
-- Income:
+1.2 Income:
 
 • Req-5: Income Recording (Metadata)
 	• The system must allow users to record income transactions(deposits).
@@ -46,7 +42,7 @@
 	• The system must write every income record to the user's permanent, immutable transaction history.
 	• System Note: The account balance update (Req-6) and the transaction ledger log (Req-7) must execute as an atomic transaction (either both succeed or both fail) to prevent data mismatch.
 
-- Expenses
+1.3 Expenses
 
 • Req-8: Expense Recording (Metadata)
 	• The system must allow users to record expense transactions.
@@ -58,7 +54,7 @@
 	• The system must write every expense record to the user's permanent, immutable transaction history.
 	• System Note: The account balance update (Req-9) and the transaction ledger log (Req-10) must execute as an atomic database transaction.
 
-- Transfers
+1.4 Transfers
 
 • Req-11: Transfer Recording (Metadata)
 	• The system must allow users to record internal transfer transactions between their own accounts.
@@ -73,7 +69,7 @@
 	• System Note: The dual balance updates (Req-12) and the ledger logging (Req-13) must execute as a single atomic database transaction.
 
 
-- Transaction history
+1.5 Transaction history
 
 • Req-14: Comprehensive Transaction Ledger View
 	• The system must provide a centralized transaction history ledger containing all historical financial activity for the user.
@@ -82,15 +78,43 @@
 	• To ensure performance under large volumes of data, the system must implement server-side pagination, defaulting to 25 records per page.
 	• The system must display records sorted in reverse-chronological order (newest transactions first) by default.
 
-    
-• Req-16: Ledger Search and Filtering
-	• The system must allow users to filter their transaction history by date range, transaction type, associated account, and category.
 
-- Search and filtering
-Users must be able to search for specific transactions from among a list of transactions. They must be able to search by the following criteria;
-- date
-- transaction type(either deposit, transfer or withdrawal)
-- transactions made by a specific account
-- transactions in a speific category
-- transactions within a specified range of amount
-The application must show relevant feedback when no results match requested criteria.
+1.6 Search and filtering
+
+• Req-17: Compound Filter Engine
+	• The system must support the dynamic combination of multiple filter parameters within a single ledger request.
+	• The system must execute queries utilizing the following filtering criteria:
+		• Temporal: Specific date or inclusive date ranges.
+		• Categorical: Transaction Type (INCOME, EXPENSE, TRANSFER) and expense categories.
+		• Entity-based: Associated financial accounts.
+		• Quantitative Range: Inclusive minimum and maximum monetary amounts (e.g., Amount >= Min AND Amount <= Max).
+• Req-18: Graceful Empty-State Handling
+	• When a compound filter yields zero matches, the backend system must return an empty dataset payload (e.g., HTTP 200 with an empty list []) rather than an error block.
+	• The user interface must display a clear, non-intrusive "No matching transactions found" state with an option to reset filters.
+
+
+1.7 Balances
+
+• Req-19: Granular Account Balances
+	• The system must calculate and expose the real-time monetary balance of every individual active financial account.
+• Req-20: Total Aggregate Net Worth Display
+	• The system must provide a consolidated dashboard view displaying the user's aggregate net balance across all active accounts.
+• Req-21: Strict Mathematical Integrity
+	• The system must guarantee internal consistency such that the total aggregate balance strictly equals the sum of all individual active account balances at any given timestamp.
+	• The values must update automatically and atomically across all views upon the successful recording of any income, expense, or transfer transaction.
+
+
+1.8 Financial reports
+
+• Req-22: Time-Bounded Financial Summary Engine
+	• The system must generate aggregated financial summaries bounded by a user-selected date range (start date and end date).
+• Req-23: Core Reporting Metrics
+	• For the selected period, the system must calculate and display:
+		• Total Income: The mathematical sum of all transactions classified as INCOME.
+		• Total Expenses: The mathematical sum of all transactions classified as EXPENSE.
+		• Net Delta: The net change calculated strictly as Total Income - Total Expenses.
+• Req-24: Categorical and Entity Breakdown
+	• The report must provide a breakdown of total expenditure grouped by expense category (e.g., Food, Utilities).
+	• The report must display individual account activity, tracking the respective influx and outflux of funds for each active account during the period.
+• Req-25: Transfer Exclusion Rule
+	• The reporting engine must explicitly exclude transactions categorized as TRANSFER from both the Total Income and Total Expenses metrics to prevent artificial distortion of the user's cash flow analytics.

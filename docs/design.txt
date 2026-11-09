@@ -1,4 +1,3 @@
-# requirements interpretation ##
 1. Requirements Interpretation
 
 1.1 Accounts:
@@ -19,6 +18,7 @@
 	• The system must allow users to deactivate an account, changing its state to inactive and removing it from the default active accounts list view.
     • The system must allow users to reactivate an account, changing its state to active from inactive and puting it in the default active accounts list view.
 	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 2: Business Rules).
+
 
 1.2 Income:
 
@@ -42,6 +42,7 @@
 • Req-10: Transaction Ledger Logging
 	• The system must write every expense record to the user's permanent, immutable transaction history.
 	• System Note: The account balance update (Req-9) and the transaction ledger log (Req-10) must execute as an atomic database transaction.
+
 
 1.4 Transfers
 
@@ -109,6 +110,8 @@
 	• The reporting engine must explicitly exclude transactions categorized as TRANSFER from both the Total Income and Total Expenses metrics to prevent artificial distortion of the user's cash flow analytics.
 
 # the business rules you chose (future dates, account deactivation, money representation,so on)
+
+
 
 2. Business rules
 
@@ -183,9 +186,17 @@
 	• It is assumed that the application runs within a standard command-line interface terminal (CLI) with an active Python 3.10 (or higher) runtime environment installed on the host operating system.
 
 
-# ambiguities
+4. Identified Ambiguities
 
-4. Ambiguities
+• AMB-01: Terminal Interaction Pattern
+	• Ambiguity: The prompt defines functional capabilities but does not specify the method of user input collection within the CLI environment.
+	• Resolution: We have resolved this by opting for a synchronous interactive menu loop using Python's native input() utility, rather than parsing raw CLI flags.
+• AMB-02: Structural Casing for Uniqueness Constraints
+	• Ambiguity: The prompt states that duplicate account names must be rejected but does not clarify string evaluation limits regarding capitalization.
+	• Resolution: The system will strictly enforce case-insensitive evaluation across all string boundaries (e.g., "Cash" matches "cash") to proactively prevent data redundancy.
+• AMB-03: Persistence
+	• Ambiguity: The prompt states that transaction history must remain useful over time but does not specify a storage medium.
+	• Resolution: The system persists data locally using a structured JSON flat-file/SQLite database rather than keeping it strictly in-memory, ensuring user data survives terminal sessions.
 
 📦 Variables
 🔢 Data Types
@@ -195,10 +206,106 @@
 🔀 Conditionals
 🔁 Loops
 
-# architecture
-# project structure
-# data model
-# persistence decision with justification
+
+5. Architecture & Layout Blueprint
+
+
+5.1 Three-Tier Layer Separation
+
+• Presentation Layer (ui/): Manages terminal rendering, command-line display, and collects synchronous string inputs via input(). This layer is forbidden from executing math adjustments or parsing file files directly.
+• Business Logic Layer (models/): Implements code validation boundaries, evaluates constraints (e.g., insufficient balances, string formatting rules), and tracks application execution states.
+• Data Access Layer (file_manager/): Isolates all disk I/O mutations. Handles loading parsing tasks and serializing JSON payloads to flat storage files securely.
+
+Data Flow Direction:
+[ Presentation Layer (UI) ] ──> [ Business Logic Layer ] <──> [ Data Access Layer ]
+
+
+5.2 Project Structure
+```text
+wallet_manager/
+│
+├── main.py                 # Application entry-point and central bootstrapper
+│
+├── ui/                     # Presentation Tier
+│   └── ui.py               # Menu engine loop and terminal text input collectors
+│
+├── models/                 # Business Logic Tier
+│   ├── wallet_engine.py    # Main coordinator executing core workflows
+│   ├── account.py          # Entity validator enforcing account rules
+│   └── transaction.py      # Entity validator enforcing ledger rules
+│
+├── file_manager/           # Data Access Tier
+│   └── storage.py          # Plain text JSON reading and rewriting utilities
+│
+└── utils/                  # Shared cross-cutting components
+    └── validators.py       # Reusable currency scale and ISO date format regex utilities
+```
+
+5.3 Data Structure
+```json
+{
+  "accounts": {
+    "acc_aBc12": {
+      "id": "acc_aBc12",
+      "acc_name": "First Bank",
+      "acc_type": "SAVINGS",
+      "acc_bal": 5250.00,
+      "created_at": "2026-11-10T00:00:00Z"
+    },
+    "acc_cBg5i": {
+      "id": "acc_cBg5i",
+      "acc_name": "Savings Acc",
+      "acc_type": "SAVINGS",
+      "acc_bal": 5000.00,
+      "created_at": "2026-11-10T00:05:00Z"
+    }
+  },
+  "transactions": [
+    {
+      "id": "trx_123Df",
+      "amount": 250.00,
+      "trx_type": "EXPENSE",
+      "category": "Food",
+      "desc": "Groceries",
+      "source_acc_id": "acc_aBc12",
+      "target_acc_id": null,
+      "timestamp": "2026-11-10T00:01:00Z"
+    },
+    {
+      "id": "trx_1oerf",
+      "amount": 10500.00,
+      "trx_type": "INCOME",
+      "category": "Salary",
+      "desc": "Monthly paycheck",
+      "source_acc_id": null,
+      "target_acc_id": "acc_aBc12",
+      "timestamp": "2026-11-10T00:02:00Z"
+    },
+    {
+      "id": "trx_0q1wS",
+      "amount": 5000.00,
+      "trx_type": "TRANSFER",
+      "category": "Internal Transfer",
+      "desc": "Moving to savings",
+      "source_acc_id": "acc_aBc12",
+      "target_acc_id": "acc_cBg5i",
+      "timestamp": "2026-11-10T00:06:00Z"
+    }
+  ]
+}
+```
+
+
+6. Persistence Architecture & Integrity Guard
+
+• Serialization Lifecycle (json.dump / json.load)
+	• Data Extraction (Deserialization): Upon application boot, the Data Access Layer reading utility utilizes Python's native json.load() function to read the local storage file. It parses the raw character blocks into an operational native Python dictionary structure for business engine execution.
+	• Data Compression (Serialization): When transaction logs are updated, state properties are converted back into a valid JSON string mapping payload via Python’s json.dump() method with a strict indentation format to preserve human-readable scannability.
+• Atomic Write Fail-Safe Strategy
+	• To prevent structural data corruption during file I/O operations (e.g., if the user accidentally closes the terminal execution stream mid-write), the system forbids writing directly into the active database file.
+	• The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
+	• Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
+
 # error-handling strategy
 # testing strategy
 # explicit out-of-scope decisions. 

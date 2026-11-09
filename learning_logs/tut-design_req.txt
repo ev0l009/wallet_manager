@@ -172,3 +172,7 @@ To help tailor this, what is one specific requirement or feature from your actua
 • The Trap: Copying and pasting the functional features list from your prompt.
 • How to Write It: Translate the material into specific system behaviors. Group them logically (e.g., User Authentication, Core Processing, Reporting).
 • The Blueprint: Use the User Story format ("As a [User Role], I want to [Action], so that [Value]") or a Functional Capabilities list. For instance, if the prompt says "Users should be able to upload profile pictures," you interpret it as: "The system must validate image payloads, restrict uploads to JPEG/PNG under 5MB, and store them securely."
+
+
+That is completely normal! When a project prompt is straightforward, identifying ambiguities can feel like looking for problems that aren’t there.
+However, in engineering, "Ambiguity" doesn’t just mean you are confused; it means the prompt left a technical implementation detail open to choice, and you had to make an executive engineering decision.

@@ -144,9 +144,30 @@
 	• If the transaction amount exceeds the current account balance, the operation must be aborted, and an insufficient funds validation error returned.
 
 
-2.2 Monetary Values & Validation Mechanics
+2.3 Transfer Mechanics
+
+• BR-10: Self-Transfer Prevention
+	• The system must reject transfer operations where the unique identifier (ID) of the source account matches the unique identifier of the destination account.
+• BR-11: Multi-Account Lifecycle and Existence Check
+	• The system must verify the existence of both accounts; the operation must fail if either the source account ID or the destination account ID does not exist in the persistence layer.
+	• The system must block the transaction if either the source account or the destination account holds an INACTIVE status.
+• BR-12: Transfer Quantification & Global Constraints
+	• All transfer amounts must adhere strictly to the numeric validation, scale, and threshold limits established in Section 2.2 (BR-06, BR-07, and BR-08).
+• BR-13: Asset Sufficiency (Overdraft Enforcement)
+	• The system must confirm that the source account's current balance is greater than or equal to the transfer amount.
+	• If the source account balance is insufficient, the transaction must be aborted, no database states may be mutated, and an explicit INSUFFICIENT_FUNDS error payload returned.
 
 
+
+2.4 Date and Timestamp Validation
+
+• BR-14: Temporal Format and Structural Integrity
+	• The system must validate that all incoming transaction dates conform strictly to the ISO 8601 extended string format (YYYY-MM-DDTHH:mm:ssZ). Any malformed strings must be rejected.
+• BR-15: Calendar Consistency Checks
+	• The system must execute real-calendar validation checks on all inputs. Inputs representing non-existent calendar dates (e.g., 2026-02-30 or 2026-11-31) must be intercepted and rejected.
+• BR-16: Future-Dating Block & Timezone Anchoring
+	• The system must evaluate all timestamps against the current system time adjusted to West Africa Time (WAT / UTC+1).
+	• The system must explicitly reject any transaction containing a timestamp that sits in the future relative to the current real-time clock execution window.
 
 # assumptions
 # ambiguities

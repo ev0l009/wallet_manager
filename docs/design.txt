@@ -1,17 +1,4 @@
 # requirements interpretation ##
-# assumptions
-# ambiguities
-# the business rules you chose (future dates, account deactivation, money representation,so on)
-# architecture
-# project structure
-# data model
-# persistence decision with justification
-# error-handling strategy
-# testing strategy
-# explicit out-of-scope decisions. 
-# The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
-
-
 1. Requirements Interpretation
 
 1.1 Accounts:
@@ -21,15 +8,16 @@
     • The system must enforce and persist the following attributes for every account: a unique system identifier (ID), a user-defined account name, an account type (e.g., Bank, Savings, Cash, Mobile Wallet), and a creation timestamp.
 
 • Req-2: Account Retrieval (View & Inspect)
-	• The system must provide a list view of all active accounts belonging to the authenticated user.
+	• The system must provide a list view of all active accounts belonging to the user.
 	• The system must allow users to inspect a specific account to view its details, current balance, and associated transaction history.
 
 • Req-3: Account Modification
 	• The system must allow users to update the name of an existing account.
 
-• Req-4: Account Deactivation
+• Req-4: Account Activation/Deactivation
 	• The system must allow users to deactivate an account, changing its state to inactive and removing it from the default active accounts list view.
-	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 4: Business Rules).
+    • The system must allow users to reactivate an account, changing its state to active from inactive and puting it in the default active accounts list view.
+	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 2: Business Rules).
 
 1.2 Income:
 
@@ -118,3 +106,64 @@
 	• The report must display individual account activity, tracking the respective influx and outflux of funds for each active account during the period.
 • Req-25: Transfer Exclusion Rule
 	• The reporting engine must explicitly exclude transactions categorized as TRANSFER from both the Total Income and Total Expenses metrics to prevent artificial distortion of the user's cash flow analytics.
+
+# the business rules you chose (future dates, account deactivation, money representation,so on)
+
+2. Business rules
+
+2.1 Accounts & Lifecycle Management
+
+• BR-01: Structural Integrity (Naming Constraints)
+	• Account names must not be empty strings, null, or consist solely of whitespace.
+	• Account names must be between 4 and 20 characters in length.
+	• Account names must be unique per user profile; the system must reject duplicate account names to prevent user confusion.
+• BR-02: Initial State and Typology
+	• Every newly initialized account must be automatically assigned an immutable unique identifier (UUID/ID) and an initial state status of ACTIVE.
+	• The account type must strictly map to one of the allowed system enums (CASH, BANK, SAVINGS, MOBILE_WALLET). Any other string values must be rejected with a validation error.
+• BR-03: Reference Validation
+	• The system must reject any transaction attempt (Income, Expense, Transfer) that references a non-existent, malformed, or invalid Account ID or Name.
+• BR-04: Active List Isolation
+	• The standard account directory list view must exclusively query and display accounts possessing an ACTIVE status.
+• BR-05: Deactivation & Invalidation Isolation
+	• An account can only transition to an INACTIVE (deactivated) state if its current calculated balance is exactly 0.00.
+	• Once an account status transitions to INACTIVE, it must be completely blocked from participating in any new ledger modifications, including incoming income, outgoing expenses, or internal transfers as either a sender or a receiver.
+
+
+2.2 Monetary Values & Validation Mechanics
+
+• BR-06: Data Type & Range Constraints
+	• The system must reject any transaction amount input that contains non-numeric characters (alphabets, symbols), empty strings, or null values.
+	• The system must strictly enforce that all transaction amounts are positive numbers strictly greater than zero (Amount > 0.00). Zero and negative inputs must be blocked.
+• BR-07: Numeric Precision and Scale (Currency Guard)
+	• The system must evaluate all monetary figures up to exactly two decimal places of scale (representing Naira and Kobo).
+	• Any user input exceeding two decimal places must be rejected with a validation error to prevent floating-point calculation mismatches.
+• BR-08: Transaction Ceiling (Upper Bound Safety)
+	• To mitigate overflow vulnerabilities in arithmetic calculations, the system must reject any single transaction amount exceeding a safety ceiling of ₦99,999,999.99.
+• BR-09: Balance Sufficiency (Overdraft Prevention)
+	• For EXPENSE and TRANSFER operations, the system must verify that the designated source account holds a balance equal to or greater than the intended transaction amount.
+	• If the transaction amount exceeds the current account balance, the operation must be aborted, and an insufficient funds validation error returned.
+
+
+2.2 Monetary Values & Validation Mechanics
+
+
+
+# assumptions
+# ambiguities
+# architecture
+# project structure
+# data model
+# persistence decision with justification
+# error-handling strategy
+# testing strategy
+# explicit out-of-scope decisions. 
+# The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
+
+1. Wave 1 (The Bounds): Write down your Ambiguities, Out-of-Scope decisions, and Business Rules first. This builds your project fences.
+2. Wave 2 (The Data & Structure): Draft your Data Model and decide on Persistence. Your code structure always flows downstream from how your data looks.
+3. Wave 3 (The System Architecture): Map out your Architecture Proposal and Project Structure.
+4. Wave 4 (The Mechanics): Finish with Error Handling and Testing.
+If you want to practice drafting a section, tell me:
+• What is the general premise or core feature of your coding project?
+• Are there any specific parts of the prompt you find yourself stuck trying to rephrase?
+I can give you a concrete example of how to transform one of your actual project prompts into these technical sections.

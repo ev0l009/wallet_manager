@@ -36,37 +36,55 @@
 	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 4: Business Rules).
 
 - Income:
-- Req-1: Deposits and Metadata
-    - The system must allow users to perform deposits.
-    - Deposit transactions must hold relevant details including specific account credited, credited amount, time of transaction and concise transaction description
-- Req-2: Account balance update
-    - The account in question must update it current balance correctly. 
-- Req-3: Transaction logging
-    - Successful deposit transactions must be logged in the transaction history.
+
+• Req-5: Income Recording (Metadata)
+	• The system must allow users to record income transactions(deposits).
+	• The system must capture and validate the following inputs for each income entry: transaction amount (positive monetary value), target financial account, transaction date/time, and a descriptive label (e.g., "Salary").
+• Req-6: Account Balance Mutation
+	• Upon successfully recording income, the system must immediately increment the balance of the designated target account by the transaction amount.
+• Req-7: Transaction Ledger Logging
+	• The system must write every income record to the user's permanent, immutable transaction history.
+	• System Note: The account balance update (Req-6) and the transaction ledger log (Req-7) must execute as an atomic transaction (either both succeed or both fail) to prevent data mismatch.
 
 - Expenses
-Users must be able to record withdrawals. The records must contain;
-- account debited
-- amount withdrawn
-- expense category
-- transaction time
-- concise transaction description
-The account must also update its balance correctly and the transaction must be logged in the transaction history.
+
+• Req-8: Expense Recording (Metadata)
+	• The system must allow users to record expense transactions.
+	• The system must capture and validate the following inputs for each expense entry: transaction amount (positive monetary decimal value), source financial account, transaction date/time, expense category (e.g., Food, Bills), and an optional descriptive label (e.g., "Groceries").
+• Req-9: Account Balance Mutation
+	• Upon successfully recording an expense, the system must immediately decrement the balance of the designated source account by the transaction amount.
+	• System Note: The system's behavior regarding whether an account balance is allowed to drop below 0.00 (overdraft) will be defined in Section 4: Business Rules.
+• Req-10: Transaction Ledger Logging
+	• The system must write every expense record to the user's permanent, immutable transaction history.
+	• System Note: The account balance update (Req-9) and the transaction ledger log (Req-10) must execute as an atomic database transaction.
 
 - Transfers
-Users must be able to move money between accounts without inflating the net balance. Transfer records must include;
-- accounts involved (source(sender) and target(reciever))
-- transaction time
-- transferred amount
-Both accounts invloved must have their balances updated accordingly and the transaction must become part of the transaction history.
+
+• Req-11: Transfer Recording (Metadata)
+	• The system must allow users to record internal transfer transactions between their own accounts.
+	• The system must capture and validate the following inputs: a source account (sender), a distinct target account (recipient), a transaction amount (positive monetary decimal value), and a transaction date/time.
+	• The system must enforce that the source account and target account are not the same entity.
+• Req-12: Dual Account Balance Mutation
+	• Upon execution, the system must perform a simultaneous multi-account adjustment: decrement the source account balance and increment the target account balance by the transaction amount.
+	• The system must guarantee that the net sum of both accounts remains unchanged after the mutation.
+• Req-13: Independent Transaction Classification
+	• The system must log the transfer to the immutable transaction history using a specific classification type (TRANSFER).
+	• The system must isolate TRANSFER types from standalone INCOME or EXPENSE totals to prevent artificial inflation of financial reports.
+	• System Note: The dual balance updates (Req-12) and the ledger logging (Req-13) must execute as a single atomic database transaction.
+
 
 - Transaction history
-Users must be able to see details about all their transactions. Each transaction must provides useful information including;
-- transaction type
-- transaction time
-- transaction amount
-- account(s) involved in the transaction
-- concise description about the transaction
+
+• Req-14: Comprehensive Transaction Ledger View
+	• The system must provide a centralized transaction history ledger containing all historical financial activity for the user.
+	• Every transaction record in the ledger must explicitly display: unique transaction ID, classification type (INCOME, EXPENSE, TRANSFER), timestamp, amount, primary account(s) involved, category (mandatory for expenses), and an optional descriptive label.
+• Req-15: History Optimization & Scalability (Large Data Volumes)
+	• To ensure performance under large volumes of data, the system must implement server-side pagination, defaulting to 25 records per page.
+	• The system must display records sorted in reverse-chronological order (newest transactions first) by default.
+
+    
+• Req-16: Ledger Search and Filtering
+	• The system must allow users to filter their transaction history by date range, transaction type, associated account, and category.
 
 - Search and filtering
 Users must be able to search for specific transactions from among a list of transactions. They must be able to search by the following criteria;
@@ -76,4 +94,3 @@ Users must be able to search for specific transactions from among a list of tran
 - transactions in a speific category
 - transactions within a specified range of amount
 The application must show relevant feedback when no results match requested criteria.
-

@@ -307,6 +307,18 @@ wallet_manager/
 	• Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
 
 # error-handling strategy
+
+The system must gracefully handles errors across its layers and provides relevant user feedback and logs. The system must also prefer custom high-level exceptions for default low-level exceptions to provide better user and developer feedback.
+
+
+1. User Input Failures (The Business Layer)
+| User Input | --- | --- | --- |
+| --- | --- | --- | --- |
+| Invalid amount | alphabets, symbols, invalid decimals | InvalidAmountError | Amount must be an int or float |
+| 
+• User enters invalid amount: Raises InvalidAmountError 
+• Your strategy: How does your code catch this? You will likely catch ValueError during type conversion (float()), clear the prompt, and ask them to re-enter a valid positive number without crashing the program loop.
+
 # testing strategy
 # explicit out-of-scope decisions. 
 # The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.

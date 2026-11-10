@@ -198,14 +198,6 @@
 	• Ambiguity: The prompt states that transaction history must remain useful over time but does not specify a storage medium.
 	• Resolution: The system persists data locally using a structured JSON flat-file/SQLite database rather than keeping it strictly in-memory, ensuring user data survives terminal sessions.
 
-📦 Variables
-🔢 Data Types
-➕ Operators
-⌨️ Input / Output
-🔤 Strings
-🔀 Conditionals
-🔁 Loops
-
 
 5. Architecture & Layout Blueprint
 
@@ -306,21 +298,52 @@ wallet_manager/
 	• The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
 	• Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
 
+7.0 Error Handlling
 
 7.1 Input & Domain Validation Matrix (Business Layer)
 
 The system wraps standard, low-level Python runtime errors into explicit, high-level custom domain exceptions to ensure the user interface receives clean validation targets without crashing the execution loop.
 
-| Expected Error | Root Cause Context | Trapped Native Exception | Custom Domain Exception | Raised | User-Facing Console Feedback |
+| Expected Error | Root Cause Context | Trapped Native Exception | Custom Domain Exception Raised | User-Facing Console Feedback |
 | :--- | :--- | :--- | :--- | :--- |
 | Invalid Amount Entry | String contains letters, symbols, or invalid decimal structures. | ValueError during type-casting via float(). | InvalidAmountError | "Error: Amount must be a valid positive number with up to 2 decimal places." |
 | Malformed Account Name | Empty strings, whitespace, or strings under 4 or over 20 characters. | Failure during internal string length check. | InvalidAccountNameError | "Error: Account name cannot be blank and must be between 4 and 20 characters long."
 | Invalid Account Type | Input fails to match allowed types (CASH, BANK, etc.). | Value mapping check fails against allowed Enums. | InvalidAccountTypeError | "Error: Invalid account type. Must be one of: Cash, Bank, Savings, or Mobile Wallet." |
 | Invalid Account Status | Input fails to match allowed states (ACTIVE, INACTIVE). | Value mapping check fails against state Enums. | InvalidAccountStatusError | "Error: System action rejected. Account state must be either ACTIVE or INACTIVE." |
-| Invalid Date/Time Format | Input fails to match expectd date/time format(YYYY-MM-DD). | Value mapping check fails against datetime utility. | InvalidDateTimeError | "Error: System action rejected. Invalid date/time" |
-| Invalid Transaction type | Input fails to match allowed states (EXPENSE, INCOME, TRANSFER). | Value mapping check fails against state Enums. | InvalidTransactionTypeError | "Error: System action rejected. Transaction type must be one of: Income, Expense, Transfer." |
-| Invalid Account/Transaction ID | Empty strings, non-existent ids | Failure during membership check. | InvalidAccountIDError/InvalidTransactionIDError | "Error: System action rejected. ID does not exist." |
+| Invalid Date/Time Format | Input does not conform to the expected format layout. | ValueError during parsing via datetime.fromisoformat(). | InvalidDateTimeError | "Error: Invalid date/time format. Please use ISO 8601 extended format (YYYY-MM-DDTHH:mm:ssZ)." |
+| Invalid Transaction Type | Input fails to match allowed operational states. | Value mapping check fails against transaction Enums. | InvalidTransactionTypeError | "Error: System action rejected. Transaction type must be one of: INCOME, EXPENSE, or TRANSFER." |
+| Invalid Account / Transaction ID | Empty string inputs or non-existent unique keys. | Membership key lookup failure (id not in dict). | EntityNotFoundError | "Error: System action rejected. The requested account or transaction ID does not exist." |
+| Invalid Category | Selected category does not match the valid, allowed options list. | Value verification fails membership list evaluation. | InvalidCategoryError | "Error: System action rejected. Please select a valid transaction category." |
+| Insufficient Funds | Transaction amount exceeds the available balance during a withdrawal or transfer. | Evaluation check evaluates to Amount > Account.balance. | InsufficientFundsError	"Error: Transaction aborted. Insufficient funds in the selected source account." |
+| Self Transfer Violation | User attempts to move money to the exact same account. | Equality match evaluates to Source_ID == Target_ID. | SelfTransferError | "Error: Transfer rejected. Source and destination accounts cannot be the same entity." |
+| Inactive Account Mutation | User attempts to post an entry involving a deactivated account. | Lifecycle validation check flags status as INACTIVE. | InactiveAccountError | "Error: Action blocked. Cannot post transactions to or from a deactivated account." |
 
+
+7.2 Storage & Persistence Exceptions (Data Access Layer)
+
+The Data Access Layer traps low-level operating system and file system anomalies, translating them into controlled database exceptions or executing silent self-healing actions.
+
+| Expected Error | Root Cause Context | Trapped Native Exception | Custom Exception Raised | User-Facing / System Resolution Feedback |
+| :--- | :--- | :--- | :--- | :--- |
+| Missing Storage Ledger | Application is initialized for the first time, or the storage file was manually deleted. | FileNotFoundError during execution of open(). | None (Gracefully Handled) | System Action: Intercepted silently. | The Data Access Layer automatically creates the missing directory and initializes a clean file containing empty structures ({"accounts": {}, "transactions": []}). |
+| Corrupted JSON Payload | Manual tampering or partial disk writes left broken syntax inside the file. | json.JSONDecodeError during data load. | DatabaseCorruptedException | "Fatal Error: The local database file is corrupted and cannot be parsed. Please check storage.json syntax or restore from a backup." (Application safely terminates) |
+| Write Permission Locked | Host OS has flagged the file as read-only, or another background process blocked it. | PermissionError or OSError during a flush or write step. | DatabaseWriteException	"Error: Disk write access denied. The system cannot save your changes. Please check folder write permissions." |
+
+
+7.3 Top-Level Catch-All Engine
+
+To prevent raw Python tracebacks from leaking into the terminal under unexpected conditions, the main entry point (`main.py`) wraps the execution menu loop inside a global catch-all safety block:
+
+```python
+try:
+    # Run interactive console menu loop
+    app.run()
+except Exception as e:
+    print("\n[CRITICAL ERROR] An unexpected system failure occurred.")
+    print("Please restart the application. If issues persist, contact support.")
+    # In a production scope, the full trace 'e' would be piped to an internal 'app.log' file here.
+    sys.exit(1)
+```
 
 # testing strategy
 # explicit out-of-scope decisions. 

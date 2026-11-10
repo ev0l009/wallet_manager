@@ -306,18 +306,17 @@ wallet_manager/
 	• The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
 	• Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
 
-# error-handling strategy
 
-The system must gracefully handles errors across its layers and provides relevant user feedback and logs. The system must also prefer custom high-level exceptions for default low-level exceptions to provide better user and developer feedback.
+7.1 Input & Domain Validation Matrix (Business Layer)
 
+The system wraps standard, low-level Python runtime errors into explicit, high-level custom domain exceptions to ensure the user interface receives clean validation targets without crashing the execution loop.
 
-1. User Input Failures (The Business Layer)
-| User Input | --- | --- | --- |
-| --- | --- | --- | --- |
-| Invalid amount | alphabets, symbols, invalid decimals | InvalidAmountError | Amount must be an int or float |
-| 
-• User enters invalid amount: Raises InvalidAmountError 
-• Your strategy: How does your code catch this? You will likely catch ValueError during type conversion (float()), clear the prompt, and ask them to re-enter a valid positive number without crashing the program loop.
+| Expected Error | Root Cause Context | Trapped Native Exception | Custom Domain Exception | Raised | User-Facing Console Feedback |
+| :--- | :--- | :--- | :--- | :--- |
+| Invalid Amount Entry | String contains letters, symbols, or invalid decimal structures. | ValueError during type-casting via float(). | InvalidAmountError | "Error: Amount must be a valid positive number with up to 2 decimal places." |
+| Malformed Account Name | Empty strings, whitespace, or strings under 4 or over 20 characters. | Failure during internal string length check. | InvalidAccountNameError | "Error: Account name cannot be blank and must be between 4 and 20 characters long."
+| Invalid Account Type | Input fails to match allowed types (CASH, BANK, etc.). | Value mapping check fails against allowed Enums. | InvalidAccountTypeError | "Error: Invalid account type. Must be one of: Cash, Bank, Savings, or Mobile Wallet." |
+| Invalid Account Status | Input fails to match allowed states (ACTIVE, INACTIVE). | Value mapping check fails against state Enums. | InvalidAccountStatusError | "Error: System action rejected. Account state must be either ACTIVE or INACTIVE." |
 
 # testing strategy
 # explicit out-of-scope decisions. 

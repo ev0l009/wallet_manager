@@ -391,14 +391,17 @@ End-to-End tests simulate a user interacting with the live CLI menu interface.
 
 
 
-# explicit out-of-scope decisions. 
-# The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
 
-1. Wave 1 (The Bounds): Write down your Ambiguities, Out-of-Scope decisions, and Business Rules first. This builds your project fences.
-2. Wave 2 (The Data & Structure): Draft your Data Model and decide on Persistence. Your code structure always flows downstream from how your data looks.
-3. Wave 3 (The System Architecture): Map out your Architecture Proposal and Project Structure.
-4. Wave 4 (The Mechanics): Finish with Error Handling and Testing.
-If you want to practice drafting a section, tell me:
-• What is the general premise or core feature of your coding project?
-• Are there any specific parts of the prompt you find yourself stuck trying to rephrase?
-I can give you a concrete example of how to transform one of your actual project prompts into these technical sections.
+9.0 Explicit Out-of-Scope Decisions
+
+To ensure a reliable and focused implementation within the project timeline, the following technical capabilities have been explicitly designated as out-of-scope. No code blocks or structures will be engineered to support these features in the current release cycle.
+• Identity & Session Security
+	• User Authentication & Authorization: In alignment with ASM-01 (Single-User Scope), the application will not feature registration screens, password hashing forms, multi-user login gates, or login session handlers.
+• Financial & Currency Scope Boundaries
+	• Multi-Currency Frameworks: The system is built exclusively around a single fiat currency baseline (Nigerian Naira - ₦). Cross-border currency conversions, exchange-rate calculations, and multi-currency ledger balances are completely excluded.
+	• Automated / Recurring Transactions: The ledger only handles manual, real-time entries. Automated standing orders, recurring bill schedulers, or future calendar salary automations are out of scope.
+• Infrastructure & Deployment Interfaces
+	• Web, Mobile, or Graphical Deployment: The presentation layer is decoupled from graphical user interfaces (GUIs). Web hosting architectures, RESTful API servers, and mobile framework adaptations are omitted; the app is strictly a localized Python Command-Line Interface (CLI).
+• External Ecosystem Integrations
+	• External Open Banking APIs: The engine operates inside a closed data loop. The application will not connect to live banking webhooks, external payment gateways (such as Mono, Flutterwave, or Stripe), or real-time card authorization APIs.
+	• Artificial Intelligence Modules: Categorization and financial reports rely entirely on strict user inputs and standard relational logic. Predictive budget tracking, AI-powered financial advisory chat systems, and automated expense category guessing engines are omitted.

@@ -345,7 +345,12 @@ except Exception as e:
     sys.exit(1)
 ```
 
-# testing strategy
+8.0 Testing
+To ensure a reliable and compliant system, tests will involved three major strategies; unit tests, integrated tests and end-to-end tests. Testing will include happy paths, failure paths and edge cases.
+
+8.1 Unit Tests: This set of tests target individual functionalities across the system. This is to ensure that every component returns the expected output and raises the expected exceptions.
+
+| Functionality | Test function | Test parameters | Test type | Expected output
 # explicit out-of-scope decisions. 
 # The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
 

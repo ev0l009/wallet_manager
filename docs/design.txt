@@ -345,12 +345,52 @@ except Exception as e:
     sys.exit(1)
 ```
 
-8.0 Testing
-To ensure a reliable and compliant system, tests will involved three major strategies; unit tests, integrated tests and end-to-end tests. Testing will include happy paths, failure paths and edge cases.
+This is a fantastic testing strategy. Your test suite structure—covering Happy Paths, Failure Paths, and Edge Cases—is identical to what is used in professional software engineering teams.
+Using a concrete test parameter table is an exceptional way to document what you intend to test before writing the code. Testing name lengths at exactly the lower validation boundary ("Opay" at 4 characters) is a textbook example of a perfect boundary edge case.
+To polish this section into an industry-standard format, we will make three technical adjustments:
+1. Fix an Integration Test Misalignment: Your integration test currently checks if data loads from JSON into Python dicts. While that is important, integration testing is primarily about testing how two layers work together (e.g., testing that your Business Layer can successfully fetch and modify an account using the Data Access Layer without mocking).
+2. Clarify CLI End-to-End Tests: Since this is a command-line script, explain how you plan to simulate a user (e.g., using Python to mock terminal console inputs).
+3. Clean Up Language and Formatting: Correct minor typos (like "tests will involved") to maintain your high-quality professional tone.
 
-8.1 Unit Tests: This set of tests target individual functionalities across the system. This is to ensure that every component returns the expected output and raises the expected exceptions.
+📝 The Refined Blueprint
 
-| Functionality | Test function | Test parameters | Test type | Expected output
+
+8.0 Testing Strategy
+
+To guarantee system stability, mathematical integrity, and compliance with all business rules, the application implements a multi-tiered automated testing suite utilizing Python's built-in unittest framework. Test configurations explicitly address Happy Paths (optimal inputs), Failure Paths (invalid data rejection), and Boundary Edge Cases.
+
+8.1 Unit Testing (Isolated Functional Integrity)
+
+Unit tests isolate specific business functions and validation hooks. Components are tested independently by mocking out disk dependencies to verify specific exceptions are raised.
+
+| Targeted Module | Strategy | Test Function Identifier | Test Parameters / Inputs | Expected Terminal State / Exception |
+| :--- | :--- | :--- | :--- | :--- |
+| Account Creation | Happy Path | test_create_account_success | id="acc_1w", name="Polaris Bank", type="BANK", bal=0.00 | Account instance initialized successfully with status ACTIVE. |
+| Account Creation | Failure Path | test_create_account_name_too_short | id="acc_1w", name="Pol", type="BANK", bal=0.00 | Raises InvalidAccountNameError [BR-01 Compliance] |
+| Account Creation | Edge Case | test_create_account_exact_lower_bound | id="acc_1w", name="Opay", type="MOBILE_WALLET", bal=0.00 | Account instance initialized successfully (Exactly 4 characters). |
+
+
+8.2 Integration Testing (Cross-Layer Subsystem Communication)
+
+Integration tests assess the communication pathways between distinct structural tiers, specifically verifying that the Business Logic Layer updates and reads from the Data Access Layer (storage.py) correctly.
+
+| Targeted Interaction	Strategy | Test Function Identifier | Scenario Setup / Inputs | Expected Integration | Outcome |
+| :--- | :--- | :--- | :--- |
+| Atomic Entry Lifecycle | Happy Path | test_business_action_triggers_file_flush | Post a valid INCOME entry via wallet_engine.py. | 1. Account balance increments in memory.
+2. storage.py successfully writes serialized state to disk via an atomic write block. |
+| Transaction Conflict | Failure Path | test_balance_check_blocks_file_write | Attempt an over-balance EXPENSE transaction. | 1. Engine intercepts balance violation.
+2. Throws InsufficientFundsError.
+3. Disk write is bypassed; file data integrity is preserved. |
+
+
+8.3 End-to-End (E2E) Testing (Terminal Simulation workflow)
+
+End-to-End tests simulate a user interacting with the live CLI menu interface.
+• Execution Framework: These tests utilize Python's unittest.mock.patch utility to inject sequential inputs directly into the standard console stream (sys.stdin) and inspect the output printed to the terminal console (sys.stdout).
+• Test Case Example: A complete end-to-end script simulation handles booting the application menu, choosing option 1 to build a new account, option 2 to log a transaction against it, and option 5 to view the balance history sheet, confirming the text matches across the user path.
+
+
+
 # explicit out-of-scope decisions. 
 # The more explicit your reasoning is, the better I can test it. Decisions you can’t justify are usually the ones worth probing first.
 

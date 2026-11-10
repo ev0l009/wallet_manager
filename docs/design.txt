@@ -19,7 +19,7 @@
     • The system must allow users to reactivate an account, changing its state to active from inactive and puting it in the default active accounts list view.
 	• (Note: The validation logic requiring a 0.00 balance will be fully detailed in Section 2: Business Rules).
 
-
+ 
 1.2 Income:
 
 • Req-5: Income Recording (Metadata)

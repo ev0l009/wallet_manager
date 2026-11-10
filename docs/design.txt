@@ -317,6 +317,10 @@ The system wraps standard, low-level Python runtime errors into explicit, high-l
 | Malformed Account Name | Empty strings, whitespace, or strings under 4 or over 20 characters. | Failure during internal string length check. | InvalidAccountNameError | "Error: Account name cannot be blank and must be between 4 and 20 characters long."
 | Invalid Account Type | Input fails to match allowed types (CASH, BANK, etc.). | Value mapping check fails against allowed Enums. | InvalidAccountTypeError | "Error: Invalid account type. Must be one of: Cash, Bank, Savings, or Mobile Wallet." |
 | Invalid Account Status | Input fails to match allowed states (ACTIVE, INACTIVE). | Value mapping check fails against state Enums. | InvalidAccountStatusError | "Error: System action rejected. Account state must be either ACTIVE or INACTIVE." |
+| Invalid Date/Time Format | Input fails to match expectd date/time format(YYYY-MM-DD). | Value mapping check fails against datetime utility. | InvalidDateTimeError | "Error: System action rejected. Invalid date/time" |
+| Invalid Transaction type | Input fails to match allowed states (EXPENSE, INCOME, TRANSFER). | Value mapping check fails against state Enums. | InvalidTransactionTypeError | "Error: System action rejected. Transaction type must be one of: Income, Expense, Transfer." |
+| Invalid Account/Transaction ID | Empty strings, non-existent ids | Failure during membership check. | InvalidAccountIDError/InvalidTransactionIDError | "Error: System action rejected. ID does not exist." |
+
 
 # testing strategy
 # explicit out-of-scope decisions. 

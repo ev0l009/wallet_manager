@@ -165,49 +165,50 @@
   - For EXPENSE and TRANSFER operations, the system must verify that the designated source account holds a balance equal to or greater than the intended transaction amount.
   - If the transaction amount exceeds the current account balance, the operation must be aborted, and an insufficient funds validation error returned.
 
-## 2.3 Transfer Mechanics
-
-- **BR-11: Self-Transfer Prevention**
-  - The system must reject transfer operations where the unique identifier (ID) of the source account matches the unique identifier of the destination account.
-
-- **BR-12: Multi-Account Lifecycle and Existence Check**
-  - The system must verify the existence of both accounts; the operation must fail if either the source account ID or the destination account ID does not exist in the persistence layer.
-  - The system must block the transaction if either the source account or the destination account holds an INACTIVE status.
-
-- **BR-13: Transfer Quantification & Global Constraints**
-  - All transfer amounts must adhere strictly to the numeric validation, scale, and threshold limits established in Section 2.2 (BR-06, BR-07, and BR-08).
-
-- **BR-14: Asset Sufficiency (Overdraft Enforcement)**
-  - The system must confirm that the source account's current balance is greater than or equal to the transfer amount.
-  - If the source account balance is insufficient, the transaction must be aborted, no database states may be mutated, and an explicit INSUFFICIENT_FUNDS error payload returned.
-
-## 2.4 Date and Timestamp Validation
-
-- **BR-15: Date Format and Structural Integrity**
-    - The system must validate that all incoming transaction dates conform strictly to the ISO 8601 date format (YYYY-MM-DD).
-    Any malformed date strings must be rejected with a validation error.
-
-- **BR-16: Calendar Consistency Checks**
-  - The system must execute real-calendar validation checks on all inputs. Inputs representing non-existent calendar dates (e.g., 2026-02-30 or 2026-11-31) must be intercepted and rejected.
-
-- **BR-17: Future-Date Restriction**
-    - The system must compare all transaction dates against the current system date.
-    - The system must explicitly reject any transaction containing a date later than the current calendar date.
-    - Transactions dated on the current calendar date or any previous valid calendar date must be accepted.
-
-- **BR-18: Financial State Authority and Balance Consistency**
+- **BR-11: Financial State Authority and Balance Consistency**
     - The transaction ledger shall serve as the authoritative source of financial truth for all account balances.
     - The acc_bal attribute stored within each account shall serve as a cached representation of the account's current calculated balance.
     - Every successful INCOME, EXPENSE, or TRANSFER operation must update the affected account balance and append the corresponding transaction record as a single atomic operation.
     - The system must guarantee that the stored account balance remains mathematically consistent with the cumulative net effect of all associated historical ledger transactions.
     - If a discrepancy is detected between the stored account balance and the ledger-derived balance, the ledger-derived value shall take precedence, and the stored balance must be recalculated and corrected.
 
-- **BR-19: Balance Reconciliation**
+- **BR-12: Balance Reconciliation**
     - The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
     - The reconciliation process must account for all INCOME, EXPENSE, and TRANSFER transactions associated with each account.
     - The reconciliation process must identify discrepancies between stored balances and ledger-derived balances.
     Any detected discrepancy must be corrected using the ledger-derived balance.
 
+## 2.3 Transfer Mechanics
+
+- **BR-13: Self-Transfer Prevention**
+  - The system must reject transfer operations where the unique identifier (ID) of the source account matches the unique identifier of the destination account.
+
+- **BR-14: Multi-Account Lifecycle and Existence Check**
+  - The system must verify the existence of both accounts; the operation must fail if either the source account ID or the destination account ID does not exist in the persistence layer.
+  - The system must block the transaction if either the source account or the destination account holds an INACTIVE status.
+
+- **BR-15: Transfer Quantification & Global Constraints**
+  - All transfer amounts must adhere strictly to the numeric validation, scale, and threshold limits established in Section 2.2 (BR-06, BR-07, and BR-08).
+
+- **BR-16: Asset Sufficiency (Overdraft Enforcement)**
+  - The system must confirm that the source account's current balance is greater than or equal to the transfer amount.
+  - If the source account balance is insufficient, the transaction must be aborted, no database states may be mutated, and an explicit INSUFFICIENT_FUNDS error payload returned.
+
+## 2.4 Date and Timestamp Validation
+
+- **BR-17: Date Format and Structural Integrity**
+    - The system must validate that all incoming transaction dates conform strictly to the ISO 8601 date format (YYYY-MM-DD).
+    Any malformed date strings must be rejected with a validation error.
+
+- **BR-18: Calendar Consistency Checks**
+  - The system must execute real-calendar validation checks on all inputs. Inputs representing non-existent calendar dates (e.g., 2026-02-30 or 2026-11-31) must be intercepted and rejected.
+
+- **BR-19: Future-Date Restriction**
+    - The system must compare all transaction dates against the current system date.
+    - The system must explicitly reject any transaction containing a date later than the current calendar date.
+    - Transactions dated on the current calendar date or any previous valid calendar date must be accepted.
+
+---
 	
 # 3. Assumptions
 
@@ -347,6 +348,15 @@ json
 - The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
 - Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
 
+6.2 In-Memory State Consistency and Transaction Commit
+The system must never directly mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
+Before executing any financial transaction, the Business Logic Layer must create a temporary copy of the current application state.
+All proposed account balance mutations and transaction ledger additions must be applied exclusively to this temporary state.
+The Data Access Layer must serialize and persist the complete temporary state using the established staging-file and atomic replacement strategy.
+Only after successful completion of the file replacement operation may the Business Logic Layer commit the temporary state as the new active in-memory application state.
+If persistence fails at any stage, the temporary state must be discarded, the original in-memory state must remain unchanged, and a DatabaseWriteException must be raised.
+The user interface must display an appropriate error message without reporting the transaction as successful.
+
 # 7.0 Error Handlling
 
 ## 7.1 Input & Domain Validation Matrix (Business Layer)
@@ -414,8 +424,9 @@ Integration tests assess the communication pathways between distinct structural 
 
 | Targeted Interaction | Strategy | Test Function Identifier | Scenario Setup / Inputs | Expected Integration Outcome |
 | --- | --- | --- | --- | --- |
-| Atomic Entry Lifecycle | Happy Path | test\_business\_action\_triggers\_file\_flush | Post a valid INCOME entry via wallet\_engine.py. | 1\. Account balance increments in memory.\<br\>2\. storage.py successfully writes serialized state to disk via an atomic write block. |
-| Transaction Conflict | Failure Path | test\_balance\_check\_blocks\_file\_write | Attempt an over-balance EXPENSE transaction. | 1\. Engine intercepts balance violation.\<br\>2\. Throws InsufficientFundsError.\<br\>3\. Disk write is bypassed; file data integrity is preserved. |
+| Atomic Entry Lifecycle | Happy Path | `test_business_action_triggers_file_flush` | Post a valid INCOME entry via `wallet_engine.py`. | 1\. Temporary application state is created. 2. Account balance and transaction ledger are updated in the temporary state. 3. `storage.py` successfully writes the serialized state using atomic file replacement. 4. New state is committed to active memory. |
+| Transaction Conflict | Failure Path | `test_balance_check_blocks_file_write` | Attempt an over-balance EXPENSE transaction. | 1\. Engine intercepts balance violation. 2. Throws `InsufficientFundsError`. 3. No in-memory state is mutated. 4. Disk write is bypassed. |
+| Persistence Failure | Failure Path | `test_failed_persistence_preserves_memory_state` | Attempt a valid INCOME transaction while simulating a file write failure. | 1\. `DatabaseWriteException` is raised. 2. Temporary state is discarded. 3. Original in-memory balance and ledger remain unchanged. 4. Existing JSON storage remains unchanged. 5. User receives a failure notification. |
 
 ## 8.3 End-to-End (E2E) Testing (Terminal Simulation workflow)
 

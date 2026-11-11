@@ -1,10 +1,192 @@
-I am storing money as whole numbers (cents) to avoid the rounding errors that happen with decimals (floats).
-Here is how it works:
-• Saving money: The user enters an amount with up to 2 decimal places. The system multiplies this number by 100 and saves it as an integer (a whole number).
-• Showing money: To show the actual amount again, the system just divides that whole number by 100.
-Right now, the numbers in my JSON sample's acc_bal field are not displaying correctly based on this setup.
+This is a very good flag, and it's asking you to justify an architectural decision rather than simply change code.
 
-here's the fix;
+Your current design stores financial information in two places:
+
+1. **Account Balance (****`acc_bal`****):** Stores the current balance of each account.
+2. **Transaction Ledger (****`transactions`****):** Stores every income, expense, and transfer ever recorded.
+
+The problem is that both can be used to determine the current account balance.
+
+That creates a potential consistency problem.
+
+Let's break it down.
+
+## 1\. Understand the two states
+
+Imagine you have an account with the following transactions:
+
+| Transaction | Amount | Effect |
+| --- | --- | --- |
+| Initial Balance | ₦0.00 | ₦0.00 |
+| Salary (Income) | ₦10,000.00 | +₦10,000.00 |
+| Groceries (Expense) | ₦2,500.00 | -₦2,500.00 |
+| Electricity (Expense) | ₦1,500.00 | -₦1,500.00 |
+
+Your calculated balance from the ledger is:
+
+text
+
+```text
+₦10,000 - ₦2,500 - ₦1,500 = ₦6,000
+```
+
+However, your JSON also stores:
+
+json
+
+```json
+{
+    "acc_bal": 600000
+}
+```
+
+Remember, we're using Kobo, so 600000 represents ₦6,000.00.
+
+You now have two representations of the same financial state.
+
+| State | Description |
+| --- | --- |
+| Stored Balance | The balance directly saved in `acc_bal`. |
+| Derived Balance | The balance calculated by summing the account's historical transactions. |
+
+These two values should always agree.
+
+## 2\. What happens if they disagree?
+
+Imagine something goes wrong during a transaction.
+
+The ledger records an expense of ₦2,000, but the account balance fails to update.
+
+You could end up with:
+
+text
+
+```text
+Stored Balance:  ₦6,000
+Derived Balance: ₦4,000
+```
+
+Now your application has conflicting financial information.
+
+Which value should it trust?
+
+This is precisely what the feedback wants you to address.
+
+## 3\. Which one should be authoritative?
+
+My recommendation for your project is:
+
+**The transaction ledger should be the authoritative source of financial truth.**
+
+Why?
+
+Because the ledger contains the actual historical financial events that explain how an account arrived at its current balance.
+
+The stored account balance should be treated as a cached or precomputed balance used to improve performance.
+
+This means:
+
+- The transaction ledger is the source of truth.
+- `acc_bal` is a performance optimization.
+- If they disagree, the ledger wins.
+- The system can recalculate `acc_bal` using the transaction history to restore consistency.
+
+## 4\. What are the trade-offs?
+
+There are two architectural approaches.
+
+### Option A: Store the balance (your current approach)
+
+Every account stores its current balance in `acc_bal`, while transactions are also recorded in the ledger.
+
+**Advantages:**
+
+- Retrieving an account balance is extremely fast.
+- No need to recalculate the entire transaction history whenever a balance is requested.
+- Dashboard aggregation becomes simpler.
+- Suitable for accounts with large transaction histories.
+
+**Disadvantages:**
+
+- You have duplicated financial state.
+- Every transaction must update both the account balance and transaction ledger.
+- You introduce the possibility of inconsistencies.
+- You need reconciliation logic to detect and correct discrepancies.
+
+### Option B: Derive the balance from the ledger
+
+Instead of storing `acc_bal`, the application calculates the balance whenever it is requested.
+
+For example:
+
+python
+
+```python
+balance = sum(income_transactions) - sum(expense_transactions)
+```
+
+Transfers must also be accounted for:
+
+- Subtract transfers from the source account.
+- Add transfers to the destination account.
+
+**Advantages:**
+
+- No duplicated balance state.
+- The ledger becomes the single source of financial truth.
+- No possibility of stored balances becoming stale.
+- Simpler consistency management.
+
+**Disadvantages:**
+
+- Every balance retrieval requires calculations.
+- Performance can degrade as transaction history grows.
+- Dashboard calculations become more expensive.
+- Repeated calculations become unnecessary overhead.
+
+## 5\. What I recommend for your architecture
+
+I'd retain your existing `acc_bal` field.
+
+Your project already includes:
+
+- Multiple financial accounts.
+- Transaction history.
+- Account balance retrieval.
+- Aggregate net worth calculations.
+- Financial reporting.
+- Atomic transaction requirements.
+
+Storing the balance makes these operations more efficient.
+
+However, you need to explicitly document how consistency is maintained.
+
+I'd introduce the following business rules.
+
+### BR-18: Financial State Authority and Balance Consistency
+
+- The transaction ledger shall serve as the authoritative source of financial truth for all account balances.
+- The `acc_bal` attribute stored within each account shall serve as a cached representation of the account's current calculated balance.
+- Every successful INCOME, EXPENSE, or TRANSFER operation must update the affected account balance and append the corresponding transaction record as a single atomic operation.
+- The system must guarantee that the stored account balance remains mathematically consistent with the cumulative net effect of all associated historical ledger transactions.
+- If a discrepancy is detected between the stored account balance and the ledger-derived balance, the ledger-derived value shall take precedence, and the stored balance must be recalculated and corrected.
+
+### BR-19: Balance Reconciliation
+
+- The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
+- The reconciliation process must account for all INCOME, EXPENSE, and TRANSFER transactions associated with each account.
+- The reconciliation process must identify discrepancies between stored balances and ledger-derived balances.
+- Any detected discrepancy must be corrected using the ledger-derived balance.
+
+## 6\. How the JSON structure remains
+
+You don't need to remove `acc_bal`.
+
+Your structure can remain:
+
+json
+
+```json
 {
   "accounts": {
     "acc_aBc12": {
@@ -12,59 +194,59 @@ here's the fix;
       "acc_name": "First Bank",
       "acc_type": "SAVINGS",
       "acc_bal": 525000,
-      "created_at": "2026-11-10T00:00:00Z"
-    },
-    "acc_cBg5i": {
-      "id": "acc_cBg5i",
-      "acc_name": "Savings Acc",
-      "acc_type": "SAVINGS",
-      "acc_bal": 500000,
-      "created_at": "2026-11-10T00:05:00Z"
+      "created_at": "2026-11-10"
     }
   },
   "transactions": [
     {
       "id": "trx_123Df",
       "amount": 25000,
-      "trx_type": "EXPENSE",
-      "category": "Food",
-      "desc": "Groceries",
-      "source_acc_id": "acc_aBc12",
-      "target_acc_id": null,
-      "timestamp": "2026-11-10T00:01:00Z"
-    },
-    {
-      "id": "trx_1oerf",
-      "amount": 1050000,
       "trx_type": "INCOME",
       "category": "Salary",
       "desc": "Monthly paycheck",
       "source_acc_id": null,
       "target_acc_id": "acc_aBc12",
-      "timestamp": "2026-11-10T00:02:00Z"
-    },
-    {
-      "id": "trx_0q1wS",
-      "amount": 500000,
-      "trx_type": "TRANSFER",
-      "category": "Internal Transfer",
-      "desc": "Moving to savings",
-      "source_acc_id": "acc_aBc12",
-      "target_acc_id": "acc_cBg5i",
-      "timestamp": "2026-11-10T00:06:00Z"
+      "date": "2026-11-10"
     }
   ]
 }
+```
 
+Here, `acc_bal` is stored in Kobo, and the transaction amount is also stored in Kobo.
 
+---
 
+## 7\. One important architectural consideration
 
-BR-07: Numeric Precision and Scale (Currency Guard)
+There is something I want you to understand before finalizing this decision.
 
-    The system must evaluate all monetary figures up to exactly two decimal places of scale (representing Naira and Kobo).
-    Any user input exceeding two decimal places must be rejected with a validation error to prevent floating-point calculation mismatches.
+Your atomic write strategy protects against partially written JSON files, but it doesn't automatically guarantee that your account balance and ledger are mathematically consistent.
 
+For example, your application could successfully write an incorrect balance and an incorrect transaction together.
 
+Atomicity protects the operation from partial persistence; reconciliation protects the financial state from logical inconsistencies.
 
-ValueError during type-casting via float(). 	InvalidAmountError 	
-"Error: Amount must be a valid positive number with up to 2 decimal places."
+They solve different problems.
+
+---
+
+## My final recommendation
+
+For this project, I'd choose:
+
+| Decision | Approach |
+| --- | --- |
+| Authoritative financial state | Transaction ledger |
+| Stored account balance | Yes (`acc_bal`) |
+| Balance representation | Integer Kobo |
+| Balance calculation | Derived from ledger |
+| Normal balance retrieval | Read stored `acc_bal` |
+| Consistency mechanism | Atomic updates |
+| Recovery mechanism | Ledger reconciliation |
+| Discrepancy resolution | Ledger takes precedence |
+
+**The architectural decision you're making is called a cached or materialized balance approach.**
+
+You're deliberately maintaining a precomputed balance to improve retrieval performance while preserving the transaction ledger as the authoritative financial record.
+
+That's a legitimate design decision. More importantly, you can now explain exactly what it buys you, what it costs you, and how you intend to manage the risk.

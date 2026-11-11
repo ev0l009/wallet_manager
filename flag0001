@@ -1,0 +1,308 @@
+This flag is asking you to resolve two architectural contradictions:
+
+1. You haven't committed to a persistence technology. Your documentation mentions both JSON and SQLite, even though your implementation is designed around JSON.
+2. Some of your requirements describe a web application with an HTTP server, but your actual application is a local Python CLI.
+
+Both need to be corrected.
+
+My recommendation is to **commit to JSON for this project**, provided your expected transaction volume is relatively small and you explicitly document the scalability limitations.
+
+Let's work through the corrections.
+
+# 1\. Make an explicit persistence decision
+
+Your current AMB-03 says:
+
+> The system persists data locally using a structured JSON flat-file/SQLite database rather than keeping it strictly in-memory.
+
+This is ambiguous because JSON and SQLite are two different persistence architectures.
+
+You need to choose one.
+
+### My recommendation: JSON flat-file persistence
+
+Your project already has:
+
+- A dedicated `file_manager/` layer.
+- A JSON data structure.
+- A serialization and deserialization strategy.
+- An atomic file replacement mechanism.
+- A single-user execution assumption (ASM-01).
+- A single-threaded execution assumption (ASM-03).
+
+JSON is sufficient for your current project scope.
+
+However, you must acknowledge its limitations.
+
+## 2\. Rewrite AMB-03
+
+Replace your existing ambiguity resolution with:
+
+### AMB-03: Persistence Technology Selection
+
+- **Ambiguity:** The original requirements specify persistent transaction history but do not prescribe a storage technology.
+- **Resolution:** The system will use a structured JSON flat-file as its exclusive persistence mechanism. SQLite and other database management systems are explicitly excluded from the current implementation.
+- **Justification:** JSON provides a lightweight, human-readable persistence mechanism suitable for the application's single-user, single-process execution environment. It integrates directly with Python's native `json` module and supports the existing Data Access Layer architecture.
+- **Trade-off:** JSON does not provide native database indexing, query optimization, or transactional rollback mechanisms. Consequently, large transaction histories will increase file parsing, serialization, filtering, and pagination costs.
+
+# 3\. Address the 50,000 transaction problem
+
+This is probably the most important part of the feedback.
+
+Your reviewer wants you to understand what happens when the application grows.
+
+Consider two approaches:
+
+### JSON approach
+
+Suppose your application has 50,000 transactions.
+
+When the application starts:
+
+1. `json.load()` reads the entire storage file.
+2. The JSON payload is converted into Python dictionaries and lists.
+3. Transactions are loaded into memory.
+4. Filtering and sorting happen through Python operations.
+5. Pagination happens after the relevant records have been identified.
+
+For example:
+
+python
+
+```python
+transactions = storage["transactions"]
+
+filtered_transactions = [
+    trx for trx in transactions
+    if trx["trx_type"] == "EXPENSE"
+]
+
+filtered_transactions.sort(
+    key=lambda trx: trx["date"],
+    reverse=True
+)
+
+page_size = 25
+page = 1
+
+start = (page - 1) * page_size
+end = start + page_size
+
+paginated_results = filtered_transactions[start:end]
+```
+
+This works, but notice something important:
+
+**You are still processing the transaction collection before extracting the 25 records.**
+
+Pagination reduces the amount of data displayed, not necessarily the amount of data processed.
+
+With 50,000 transactions, compound filtering and sorting can become increasingly expensive.
+
+Furthermore, every successful transaction currently requires serializing and rewriting the complete JSON state.
+
+### SQLite approach
+
+SQLite handles this differently.
+
+It supports:
+
+- Database indexes.
+- SQL filtering.
+- Database-level pagination using `LIMIT` and `OFFSET`.
+- Native transaction management.
+- More efficient queries against large transaction collections.
+
+For example:
+
+sql
+
+```sql
+SELECT *
+FROM transactions
+WHERE trx_type = 'EXPENSE'
+ORDER BY date DESC
+LIMIT 25 OFFSET 0;
+```
+
+SQLite doesn't need to load the entire transaction collection into Python just to retrieve one page.
+
+### What should you choose?
+
+For your current application, I'd stay with JSON.
+
+However, don't claim that JSON is designed for unlimited transaction growth.
+
+You need an explicit accepted operating limit.
+
+# 4\. Document the scalability limitation
+
+I'd introduce a new subsection under your Architecture or Persistence section.
+
+### 6.3 Persistence Scalability Constraints
+
+- The application will use a single structured JSON file as its exclusive persistence mechanism.
+- The system is designed for a single-user, single-process environment with moderate transaction volumes.
+- The accepted operational capacity for the current release is up to **10,000 historical transaction records**.
+- Transaction retrieval, compound filtering, sorting, and pagination will be performed in application memory after loading the JSON dataset.
+- Pagination will limit the number of records returned to the presentation layer but will not eliminate the computational cost of loading and processing the underlying transaction collection.
+- Every successful financial operation requires serialization and replacement of the complete JSON storage file. Consequently, persistence costs will increase as the dataset grows.
+- Transaction volumes exceeding the accepted operational capacity will require a reassessment of the persistence architecture, with SQLite identified as the preferred migration path.
+
+**Important:** The 10,000-record limit is a proposed engineering constraint, not a proven performance threshold. You should validate it through performance testing on your target environment before presenting it as a verified capacity.
+
+This gives your reviewer an actual decision rather than an assumption that JSON will scale indefinitely.
+
+# 5\. Fix Req-15: Server-side pagination
+
+Your current requirement says:
+
+> The system must implement server-side pagination, defaulting to 25 records per page.
+
+But where is the server?
+
+You don't have one.
+
+You have:
+
+- `main.py`
+- `ui/ui.py`
+- `models/wallet_engine.py`
+- `file_manager/storage.py`
+
+This is a local command-line application.
+
+Therefore, you should replace server-side pagination with application-level pagination.
+
+### Revised Req-15: Transaction History Pagination and Scalability
+
+- The system must implement application-level pagination when retrieving transaction history records.
+- The default page size must be 25 records per page.
+- The user must be able to navigate between available transaction history pages through the CLI interface.
+- Transaction records must be sorted in reverse-chronological order (newest transactions first) by default.
+- Pagination must be applied after the relevant filtering and sorting operations have been completed.
+
+This accurately describes what your application will do.
+
+# 6\. Fix Req-18: HTTP 200 and empty lists
+
+Your current requirement says:
+
+> The backend system must return an empty dataset payload (e.g., HTTP 200 with an empty list \[\]) rather than an error block.
+
+Again, this describes a web API.
+
+Your application doesn't have HTTP endpoints or a backend server.
+
+You need to describe the behavior at the application level.
+
+### Revised Req-18: Graceful Empty-State Handling
+
+- When a search or compound filter produces zero matching transactions, the Business Logic Layer must return an empty collection rather than raising an exception.
+- The presentation layer must detect the empty collection and display a clear, non-intrusive "No matching transactions found" message.
+- The CLI interface must provide an option to reset the active filters and return to the unfiltered transaction history.
+
+Notice that the responsibility is now divided correctly:
+
+| Layer | Responsibility |
+| --- | --- |
+| Business Logic Layer | Returns an empty collection (`[]`). |
+| Presentation Layer | Displays the empty-state message and reset option. |
+| HTTP Server | Not applicable. |
+
+# 7\. Review your other requirements for web terminology
+
+While you're making these changes, check for other requirements that assume a web architecture.
+
+In particular:
+
+| Existing terminology | Recommended terminology |
+| --- | --- |
+| Server-side pagination | Application-level pagination |
+| Backend system | Business Logic Layer |
+| HTTP 200 response | Successful function execution returning an empty collection |
+| API request | Application operation or function call |
+| API error response | Custom domain exception |
+| Endpoint | CLI menu operation (where applicable) |
+
+You don't need to change terminology that is already technically correct.
+
+# 8\. Final architecture decision
+
+Here is how I'd document the final decision:
+
+| Architectural Concern | Final Decision |
+| --- | --- |
+| Persistence technology | JSON flat-file |
+| Alternative considered | SQLite |
+| Storage location | Local filesystem |
+| Serialization | Python `json.dump()` |
+| Deserialization | Python `json.load()` |
+| File replacement | Staging file + `os.replace()` |
+| Transaction processing | Temporary state staging before persistence |
+| Pagination | Application-level |
+| Default page size | 25 records |
+| Filtering | In-memory compound filtering |
+| Sorting | Reverse chronological |
+| Accepted transaction volume | 10,000 records (proposed, subject to testing) |
+| Future migration option | SQLite |
+| Deployment | Local Python CLI |
+
+---
+
+## 9\. One final thing I'd change
+
+Your Section 5.1 currently describes:
+
+text
+
+```text
+[ Presentation Layer (UI) ] ──> [ Business Logic Layer ] <──> [ Data Access Layer ]
+```
+
+I'd keep this architecture.
+
+But make sure your documentation consistently describes a **local, three-tier CLI application**, not a client-server application.
+
+Your actual execution flow is:
+
+text
+
+```text
+             USER
+              |
+              v
+      PRESENTATION LAYER
+           (ui.py)
+              |
+              v
+      BUSINESS LOGIC LAYER
+        (wallet_engine.py)
+              |
+              v
+        DATA ACCESS LAYER
+          (storage.py)
+              |
+              v
+       LOCAL JSON STORAGE
+```
+
+The Data Access Layer returns data through the Business Logic Layer to the Presentation Layer.
+
+There is no HTTP server involved.
+
+---
+
+## My verdict
+
+I would make these five changes:
+
+1. Commit exclusively to JSON in AMB-03.
+2. Document why JSON was selected and acknowledge its performance limitations.
+3. Introduce an explicit operational capacity of 10,000 transactions, subject to benchmarking.
+4. Rewrite Req-15 to use application-level pagination.
+5. Rewrite Req-18 to describe empty collection handling rather than HTTP responses.
+
+**One architectural caution:** Your JSON design now has several manually implemented responsibilities: atomic file replacement, temporary state management, rollback on persistence failure, reconciliation, compound filtering, and pagination. These are manageable for your stated scope, but they are precisely the kinds of responsibilities SQLite would handle more naturally.
+
+Staying with JSON is defensible. The important thing is that you're choosing it knowingly, with documented limitations, rather than accidentally designing a database system on top of a flat file.

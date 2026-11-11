@@ -142,7 +142,7 @@
   - The standard account directory list view must exclusively query and display accounts possessing an ACTIVE status.
 
 - **BR-05: Deactivation & Invalidation Isolation**
-  - An account can only transition to an INACTIVE (deactivated) state if its current calculated balance is exactly 0.00.
+  - An account can only transition to an INACTIVE (deactivated) state if its ledger-derived calculated balance is exactly zero Kobo. The cached acc_bal value must not be used as the sole authority for this validation.
   - Once an account status transitions to INACTIVE, it must be completely blocked from participating in any new ledger modifications, including incoming income, outgoing expenses, or internal transfers as either a sender or a receiver.
 
 ## 2.2 Monetary Values & Validation Mechanics
@@ -183,6 +183,33 @@
     - The system must guarantee that the stored account balance remains mathematically consistent with the cumulative net effect of all associated historical ledger transactions.
     - If a discrepancy is detected between the stored account balance and the ledger-derived balance, the ledger-derived value shall take precedence, and the stored balance must be recalculated and corrected.
 
+- **2.2.1 Ledger-Derived Balance Calculation**
+
+    The system must calculate each account's authoritative balance using the cumulative net effect of all associated historical transactions.
+
+    The calculation must follow these rules:
+
+    INCOME: Add the transaction amount to the target account.
+    EXPENSE: Subtract the transaction amount from the source account.
+    TRANSFER: Subtract the transaction amount from the source account and add the same amount to the target account.
+
+    The resulting account balance must be calculated using integer Kobo values exclusively.
+
+    The general balance calculation is:
+
+    Calculated Balance = Total Income + Total Transfers In - Total Expenses - Total Transfers Out
+
+    Where:
+
+    Total Income represents all INCOME transactions credited to the account.
+    Total Transfers In represents all TRANSFER transactions received by the account.
+    Total Expenses represents all EXPENSE transactions debited from the account.
+    Total Transfers Out represents all TRANSFER transactions sent from the account.
+
+    Newly created accounts must begin with an initial balance of zero Kobo.
+
+    The calculated balance must serve as the authoritative reference during balance reconciliation and account lifecycle validation.
+
 - **BR-12: Balance Reconciliation**
     - The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
     - The reconciliation process must account for all INCOME, EXPENSE, and TRANSFER transactions associated with each account.
@@ -212,6 +239,7 @@
   - The CLI must not require users to provide hours, minutes, seconds, timezone offsets, or timezone indicators.
   - The system must parse valid date inputs using Python's datetime.date.fromisoformat() method.
   - Any input that does not conform to the required date format must be rejected with an InvalidDateError.
+  - The system must enforce the exact YYYY-MM-DD input structure before parsing the date. Inputs using alternative ISO 8601 representations must be rejected.
 
 - **BR-18: Calendar Consistency Checks**
   - The system must perform real-calendar validation on all transaction date inputs.
@@ -239,6 +267,12 @@
 
 - **ASM-04: Environment and Runtime Compatibility**
   - It is assumed that the application runs within a standard command-line interface terminal (CLI) with an active Python 3.10 (or higher) runtime environment installed on the host operating system.
+
+- **ASM-05: Controllable System Date Provider**
+  - The application must obtain the current calendar date through a dedicated date-provider function rather than directly accessing the system clock throughout the business logic.
+  - During normal execution, the date provider must return the host operating system's current local calendar date.
+  - The date provider must be replaceable or injectable during automated testing so that date-dependent validation can be evaluated against a predetermined calendar date.
+  - All future-date validation must use the date returned by this provider to ensure consistent and reproducible results.
 
 # 4. Identified Ambiguities
 
@@ -383,7 +417,13 @@ json
 
 - To prevent structural data corruption during file I/O operations (e.g., if the user accidentally closes the terminal execution stream mid-write), the system forbids writing directly into the active database file.
 - The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
-- Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
+- Once the staging file has been completely written and flushed, the Data Access Layer must execute an atomic file replacement operation using os.replace() to replace the active storage.json file.
+
+- The staging file must be created within the same directory as the destination file to ensure that both files reside on the same filesystem.
+
+- The replacement operation provides atomic file-level visibility under the supported filesystem's guarantees. Readers will observe either the previous complete JSON file or the newly replaced complete JSON file, rather than a partially written destination file.
+
+- This mechanism protects against partial destination-file updates during the replacement process. However, atomic replacement alone does not guarantee complete durability against every possible operating-system crash or power failure. Stronger crash-durability guarantees would require additional filesystem synchronization measures.
 
 ## 6.3 In-Memory State Consistency and Transaction Commit
 
@@ -394,6 +434,21 @@ json
 - Only after successful completion of the file replacement operation may the Business Logic Layer commit the temporary state as the new active in-memory application state.
 - If persistence fails at any stage, the temporary state must be discarded, the original in-memory state must remain unchanged, and a `DatabaseWriteException` must be raised.
 - The user interface must display an appropriate error message without reporting the transaction as successful.
+
+## 6.4 Transaction Guarantee and Failure Boundaries:
+
+The application implements a single-file transactional persistence strategy rather than a full database transaction mechanism.
+
+The logical transaction consists of the proposed account balance mutations and corresponding ledger additions, which are persisted together as one complete JSON state replacement.
+
+- The system guarantees that:
+
+  - The active in-memory application state remains unchanged until successful file replacement.
+  - The existing JSON storage file remains intact if serialization or staging-file writing fails before replacement.
+  - A successful replacement makes the complete new JSON state visible as the active persisted state.
+  - A failed replacement must prevent the proposed in-memory state from being committed.
+
+The system does not provide database-level transaction isolation, multi-process concurrency control, or guaranteed rollback and recovery from every possible hardware or operating-system failure. These capabilities are outside the current single-process JSON persistence architecture.
 
 ## 6.4 Persistence Scalability Constraints
 
@@ -504,6 +559,12 @@ Unit tests isolate specific business functions and validation hooks. Components 
 | Account Creation | Happy Path | test\_create\_account\_success | id="acc\_1w", name="Polaris Bank", type="BANK", bal=0.00 | Account instance initialized successfully with status ACTIVE. |
 | Account Creation | Failure Path | test\_create\_account\_name\_too\_short | id="acc\_1w", name="Pol", type="BANK", bal=0.00 | Raises InvalidAccountNameError \[BR-01 Compliance\] |
 | Account Creation | Edge Case | test\_create\_account\_exact\_lower\_bound | id="acc\_1w", name="Opay", type="MOBILE\_WALLET", bal=0.00 | Account instance initialized successfully (Exactly 4 characters). |
+| Date Validation | Happy Path | test_today_date_is_accepted | Transaction date: 2026-11-11; fixed today: 2026-11-11 | Date accepted successfully |
+| Date Validation | Happy Path | test_past_date_is_accepted | Transaction date: 2026-11-10; fixed today: 2026-11-11 | Date accepted successfully |
+| Date Validation | Failure Path | test_future_date_is_rejected | Transaction date: 2026-11-12; fixed today: 2026-11-11 | Raises InvalidDateError |
+| Date Validation | Failure Path | test_invalid_calendar_date_is_rejected | Transaction date: 2026-02-30 | Raises InvalidDateError |
+| Date Validation | Failure Path | test_alternative_date_format_is_rejected | Transaction date: 2026/11/11 | Raises InvalidDateError |
+
 
 ## 8.2 Integration Testing (Cross-Layer Subsystem Communication)
 

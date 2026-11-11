@@ -1,0 +1,70 @@
+I am storing money as whole numbers (cents) to avoid the rounding errors that happen with decimals (floats).
+Here is how it works:
+• Saving money: The user enters an amount with up to 2 decimal places. The system multiplies this number by 100 and saves it as an integer (a whole number).
+• Showing money: To show the actual amount again, the system just divides that whole number by 100.
+Right now, the numbers in my JSON sample's acc_bal field are not displaying correctly based on this setup.
+
+here's the fix;
+{
+  "accounts": {
+    "acc_aBc12": {
+      "id": "acc_aBc12",
+      "acc_name": "First Bank",
+      "acc_type": "SAVINGS",
+      "acc_bal": 525000,
+      "created_at": "2026-11-10T00:00:00Z"
+    },
+    "acc_cBg5i": {
+      "id": "acc_cBg5i",
+      "acc_name": "Savings Acc",
+      "acc_type": "SAVINGS",
+      "acc_bal": 500000,
+      "created_at": "2026-11-10T00:05:00Z"
+    }
+  },
+  "transactions": [
+    {
+      "id": "trx_123Df",
+      "amount": 25000,
+      "trx_type": "EXPENSE",
+      "category": "Food",
+      "desc": "Groceries",
+      "source_acc_id": "acc_aBc12",
+      "target_acc_id": null,
+      "timestamp": "2026-11-10T00:01:00Z"
+    },
+    {
+      "id": "trx_1oerf",
+      "amount": 1050000,
+      "trx_type": "INCOME",
+      "category": "Salary",
+      "desc": "Monthly paycheck",
+      "source_acc_id": null,
+      "target_acc_id": "acc_aBc12",
+      "timestamp": "2026-11-10T00:02:00Z"
+    },
+    {
+      "id": "trx_0q1wS",
+      "amount": 500000,
+      "trx_type": "TRANSFER",
+      "category": "Internal Transfer",
+      "desc": "Moving to savings",
+      "source_acc_id": "acc_aBc12",
+      "target_acc_id": "acc_cBg5i",
+      "timestamp": "2026-11-10T00:06:00Z"
+    }
+  ]
+}
+
+
+
+
+BR-07: Numeric Precision and Scale (Currency Guard)
+
+    The system must evaluate all monetary figures up to exactly two decimal places of scale (representing Naira and Kobo).
+    Any user input exceeding two decimal places must be rejected with a validation error to prevent floating-point calculation mismatches.
+
+
+
+ValueError during type-casting via float(). 	InvalidAmountError 	
+"Error: Amount must be a valid positive number with up to 2 decimal places."

@@ -1,0 +1,72 @@
+# Gate 1 Review, Round 1
+
+**Status: Gate 1 not passed yet.** The design shows real discipline: requirements are traceable, ambiguities are named, the error matrix maps cause to exception to message, and out-of-scope decisions are explicit. But several decisions contradict your own business rules or are left undecided. Below are the issues I think matter most, in priority order. I'm deliberately not listing everything yet. Fix these first, then we'll go deeper.
+
+---
+
+## Findings that need your response
+
+### 1. Money representation contradicts BR-07 (Major, would be Critical if implemented)
+**Hint 1:** Re-read the stated purpose of BR-07. Then look at how Section 7.1 says amounts are parsed, and at the `acc_bal` values in your JSON sample. Do these three things agree with each other?
+
+**What I need from you:** what you think the problem is, and your proposed correction, including what the JSON representation of a monetary value should be.
+
+### 2. The date/time rules are internally inconsistent (Major)
+**Hint 1:** Examine three things side by side:
+- what the trailing `Z` means in BR-14
+- what BR-16 compares timestamps against
+- what `datetime.fromisoformat()` accepts on the Python version you named in ASM-04
+
+Also ask yourself: the client's examples say "September 1, 2026". Would a person typing into your CLI reasonably be expected to type seconds and a `Z`?
+
+**Additionally:** how would you write a deterministic test for "future dates are rejected"? What does your current design need in order to make that possible?
+
+### 3. Balance is stored *and* derivable from the ledger (Major)
+`acc_bal` is stored on each account, and every transaction is also in the ledger. BR-05 even refers to the "current *calculated* balance."
+
+**Why did you choose to store the balance?** I'm not telling you it's wrong, because there are legitimate trade-offs. I want you to name the two states that exist, what happens if they ever disagree, which one is authoritative, and what that costs or buys you in your design.
+
+### 4. Failure ordering in the "atomic" operation (Major)
+Your atomic-write strategy with `os.replace` shows good awareness. But look at your own integration test description in 8.2: the balance increments *in memory*, then the file is written.
+
+**Hint 1:** Trace that sequence when `DatabaseWriteException` is raised during the write. What does the user see on screen afterward, what does the next operation see, and what's on disk?
+
+Also, your requirements call this an "atomic database transaction." Is that the guarantee your JSON design actually provides? Be precise about what is and isn't guaranteed.
+
+### 5. Persistence is not actually decided (Major)
+AMB-03 says "JSON flat-file/SQLite." The spec says you must choose and justify. Section 6 then designs around JSON exclusively.
+
+**Make the decision and justify it against your own requirements:** Req-15 wants pagination for large volumes, and Req-17 wants compound filters. What does your choice cost you when there are 50,000 transactions? If you're staying with JSON, what's the accepted limit, and where is it documented?
+
+Related: Req-15 says "server-side pagination" and Req-18 says "HTTP 200 with an empty list." Where is the server? Rewrite those requirements to describe the application you're actually building.
+
+---
+
+## Questions I want you to defend (answer briefly)
+
+- **Layering (Moderate-Major):** Your arrow between Business Logic and Data Access is bidirectional (`<──>`), and your unit tests "mock out disk." Which layer imports which? How can `wallet_engine` be tested without touching disk? Also, where will queries and reports live in this structure? `account.py` and `transaction.py` are described as "validators." Is that what an entity is?
+- **Error handling (Moderate):** How does the UI catch domain errors *without* catching `Exception`? Your design lists many exceptions but no relationship between them. Also, the top-level catch-all in `main.py`: is a single boundary defensible? Possibly. But look at what it does with the exception. And does `InvalidAccountStatusError` correspond to anything a user can actually type?
+- **BR-08 (Moderate):** The stated reason is "overflow vulnerabilities in arithmetic." In Python, is that a real risk? If not, what is the real reason for a ceiling, and does a per-transaction ceiling achieve it?
+- **Account rules (Moderate):** Your list view shows only active accounts. How does a user find an inactive account to reactivate it? Is the uniqueness rule in BR-01 checked against inactive accounts too? If so, what does that do to a name like "Cash"? What happens to uniqueness when an account is renamed or reactivated?
+- **Categories (Moderate):** `InvalidCategoryError` checks against an "allowed options list." Who defines that list, and where is it stored? Transfers have the category "Internal Transfer" in your data. What does that do to your category breakdown in Req-24?
+- **Mistakes (Moderate):** The ledger is immutable. A user types ₦350,000 instead of ₦35,000. What is their recovery path? This is a legitimate design decision either way, but it has to be a decision.
+- **Opening balances:** Your unit test passes `id=` and `bal=` into an account constructor. BR-02 says IDs are assigned automatically. And how does money first enter a new account? Is that intentional?
+
+## Omissions against the spec
+
+The Gate 1 deliverables require a **typing strategy** and a **documentation approach**; neither appears. Your testing section also has only a few example rows. At design level I'd expect to see how you'll test invariants (e.g., total balance versus the sum of the ledger), persistence across a real restart, and failure during a write. Say how you plan to cover those.
+
+## Minor (fix when convenient)
+- Req-16 is missing (numbering jumps 15 to 17).
+- Some cross-references point to the wrong sections (e.g., "Section 4: Business Rules").
+- BR-09 and BR-13 state the same rule; BR-12 mostly restates earlier ones. Decide where each rule lives.
+- Two rows in your tables (Insufficient Funds, 8.2) have broken formatting.
+- Exception naming is inconsistent (`…Error` versus `…Exception`).
+- Your sample IDs (`acc_aBc12`) aren't UUIDs, though BR-02 says UUID/ID. Five random characters also raises a collision question.
+
+---
+
+## How to respond
+Take findings **1 through 5** first. For each: state the problem in your own words, say why it matters, and propose your correction. Don't paste a revised full document yet. Then answer the defend-your-decision questions briefly. Where you disagree with me, argue it. A well-defended decision counts for more than agreement.
+
+I'm tracking where you reasoned well unaided and where you needed hints. So far, positive: traceability discipline and awareness of atomic file replacement. Pattern to watch: requirements that contradict your own later sections, and web/server vocabulary leaking into a CLI design.

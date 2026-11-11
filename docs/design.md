@@ -22,7 +22,7 @@
 
 - **Req-5: Income Recording (Metadata)**
   - The system must allow users to record income transactions(deposits).
-  - The system must capture and validate the following inputs for each income entry: transaction amount (positive monetary value), target financial account, transaction date/time, and a descriptive label (e.g., "Salary").
+  - The system must capture and validate the following inputs for each income entry: transaction amount (positive monetary value), target financial account, transaction date (YYYY-MM-DD), and a descriptive label (e.g., "Salary").
 
 - **Req-6: Account Balance Mutation**
   - Upon successfully recording income, the system must immediately increment the balance of the designated target account by the transaction amount.
@@ -35,7 +35,7 @@
 
 - **Req-8: Expense Recording (Metadata)**
   - The system must allow users to record expense transactions.
-  - The system must capture and validate the following inputs for each expense entry: transaction amount (positive monetary decimal value), source financial account, transaction date/time, expense category (e.g., Food, Bills), and an optional descriptive label (e.g., "Groceries").
+  - The system must capture and validate the following inputs for each expense entry: transaction amount (positive monetary decimal value), source financial account, transaction date (YYYY-MM-DD), expense category (e.g., Food, Bills), and an optional descriptive label (e.g., "Groceries").
 
 - **Req-9: Account Balance Mutation**
   - Upon successfully recording an expense, the system must immediately decrement the balance of the designated source account by the transaction amount.
@@ -49,7 +49,7 @@
 
 - **Req-11: Transfer Recording (Metadata)**
   - The system must allow users to record internal transfer transactions between their own accounts.
-  - The system must capture and validate the following inputs: a source account (sender), a distinct target account (recipient), a transaction amount (positive monetary decimal value), and a transaction date/time.
+  - The system must capture and validate the following inputs: a source account (sender), a distinct target account (recipient), a transaction amount (positive monetary decimal value), and a transaction date (YYYY-MM-DD).
   - The system must enforce that the source account and target account are not the same entity.
 
 - **Req-12: Dual Account Balance Mutation**
@@ -65,7 +65,7 @@
 
 - **Req-14: Comprehensive Transaction Ledger View**
   - The system must provide a centralized transaction history ledger containing all historical financial activity for the user.
-  - Every transaction record in the ledger must explicitly display: unique transaction ID, classification type (INCOME, EXPENSE, TRANSFER), timestamp, amount, primary account(s) involved, category (mandatory for expenses), and an optional descriptive label.
+  - Every transaction record in the ledger must explicitly display: unique transaction ID, classification type (INCOME, EXPENSE, TRANSFER), transaction_date, amount, primary account(s) involved, category (mandatory for expenses), and an optional descriptive label.
 
 - **Req-15: Transaction History Pagination and Scalability**
   - The system must implement application-level pagination when retrieving transaction history records.
@@ -147,12 +147,19 @@
 
 ## 2.2 Monetary Values & Validation Mechanics
 
-- **BR-06: Monetary Representation and Precision Integrity**
+- **BR-06.1: Monetary Representation and Precision Integrity**
     - All monetary values must be internally represented and stored as integers in the smallest currency denomination (Kobo).
     - During input processing, valid Naira amounts must be converted into Kobo by multiplying the decimal amount by 100.
     - All financial calculations, including account balance mutations, transfers, and financial aggregations, must operate exclusively on integer Kobo values.
     - During data presentation, stored Kobo values must be converted back into Naira by dividing by 100 and formatted to exactly two decimal places.
     - The system must prohibit floating-point arithmetic in all financial calculations to eliminate precision-related discrepancies.
+
+- **BR-06.2:Input Conversion Mechanism**
+    - The application must parse user-entered Naira amounts using Python's Decimal type rather than binary floating-point types.
+    - Before conversion, the system must validate that the input is numeric, positive, and contains no more than two decimal places.
+    - Following successful validation, the amount must be converted into an integer Kobo value by multiplying the Decimal amount by 100.
+    - The resulting integer Kobo value must be used for all subsequent storage, balance mutations, transfers, and financial calculations.
+    - Binary floating-point types (float) must not be used at any stage of monetary processing.
 
 - **BR-07: Data Type & Range Constraints**
   - The system must reject any transaction amount input that contains non-numeric characters (alphabets, symbols), empty strings, or null values.
@@ -198,19 +205,24 @@
   - The system must confirm that the source account's current balance is greater than or equal to the transfer amount.
   - If the source account balance is insufficient, the transaction must be aborted, no database states may be mutated, and an explicit INSUFFICIENT_FUNDS error payload returned.
 
-## 2.4 Date and Timestamp Validation
+## 2.4 Date Validation
 
 - **BR-17: Date Format and Structural Integrity**
-    - The system must validate that all incoming transaction dates conform strictly to the ISO 8601 date format (YYYY-MM-DD).
-    Any malformed date strings must be rejected with a validation error.
+  - The system must accept transaction dates exclusively in the ISO 8601 calendar date format (YYYY-MM-DD).
+  - The CLI must not require users to provide hours, minutes, seconds, timezone offsets, or timezone indicators.
+  - The system must parse valid date inputs using Python's datetime.date.fromisoformat() method.
+  - Any input that does not conform to the required date format must be rejected with an InvalidDateError.
 
 - **BR-18: Calendar Consistency Checks**
-  - The system must execute real-calendar validation checks on all inputs. Inputs representing non-existent calendar dates (e.g., 2026-02-30 or 2026-11-31) must be intercepted and rejected.
+  - The system must perform real-calendar validation on all transaction date inputs.
+  - Inputs representing non-existent calendar dates (e.g., 2026-02-30 or 2026-11-31) must be rejected with an InvalidDateError.
+  - Only valid calendar dates may proceed to future-date validation and transaction processing.
 
 - **BR-19: Future-Date Restriction**
-    - The system must compare all transaction dates against the current system date.
-    - The system must explicitly reject any transaction containing a date later than the current calendar date.
-    - Transactions dated on the current calendar date or any previous valid calendar date must be accepted.
+  - The system must compare each validated transaction date against the current calendar date obtained from the system's date provider.
+  - The system must reject any transaction containing a date later than the current calendar date.
+  - Transactions dated on the current calendar date or any previous valid calendar date must be accepted.
+  - The date comparison must use calendar dates rather than timezone-aware timestamps.
 
 ---
 	
@@ -332,7 +344,7 @@ json
       "desc": "Groceries",
       "source_acc_id": "acc_aBc12",
       "target_acc_id": null,
-      "timestamp": "2026-11-10"
+      "transaction_date": "2026-11-10"
     },
     {
       "id": "trx_1oerf",
@@ -342,7 +354,7 @@ json
       "desc": "Monthly paycheck",
       "source_acc_id": null,
       "target_acc_id": "acc_aBc12",
-      "timestamp": "2026-11-10"
+      "transaction_date": "2026-11-10"
     },
     {
       "id": "trx_0q1wS",
@@ -352,7 +364,7 @@ json
       "desc": "Moving to savings",
       "source_acc_id": "acc_aBc12",
       "target_acc_id": "acc_cBg5i",
-      "timestamp": "2026-11-10"
+      "transaction_date": "2026-11-10"
     }
   ]
 }
@@ -414,6 +426,43 @@ The system wraps standard, low-level Python runtime errors into explicit, high-l
 | Insufficient Funds | Transaction amount exceeds the available balance during a withdrawal or transfer. | Evaluation check evaluates to Amount \> Account.balance. | InsufficientFundsError | "Error: Transaction aborted. Insufficient funds in the selected source account." |
 | Self Transfer Violation | User attempts to move money to the exact same account. | Equality match evaluates to Source\_ID == Target\_ID. | SelfTransferError | "Error: Transfer rejected. Source and destination accounts cannot be the same entity." |
 | Inactive Account Mutation | User attempts to post an entry involving a deactivated account. | Lifecycle validation check flags status as INACTIVE. | InactiveAccountError | "Error: Action blocked. Cannot post transactions to or from a deactivated account." |
+
+### 7.1.1: Monetary Input Parsing and Conversion:
+
+The Business Logic Layer must use Python's decimal.Decimal class to parse monetary input and preserve decimal precision during validation and conversion.
+
+The conversion process must follow these steps:
+
+Receive the monetary amount as a string from the CLI.
+Parse the string using Decimal().
+Validate that the amount is numeric, finite, positive, and contains no more than two decimal places.
+Multiply the validated Decimal amount by 100.
+Convert the result into an integer representing Kobo.
+Pass the integer Kobo value to the remaining business logic for processing and persistence.
+
+Illustrative implementation:
+
+python
+from decimal import Decimal, InvalidOperation
+
+def convert_to_kobo(user_input):
+    try:
+        amount = Decimal(user_input.strip())
+
+        if not amount.is_finite() or amount <= 0:
+            raise InvalidAmountError()
+
+        if amount.as_tuple().exponent < -2:
+            raise InvalidAmountError()
+
+        return int(amount * 100)
+
+    except (InvalidOperation, ValueError, AttributeError):
+        raise InvalidAmountError()
+
+
+This ensures that monetary values are converted into integer Kobo without introducing binary floating-point precision errors.
+
 
 ## 7.2 Storage & Persistence Exceptions (Data Access Layer)
 

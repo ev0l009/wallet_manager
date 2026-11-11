@@ -29,7 +29,7 @@
 
 - **Req-7: Transaction Ledger Logging**
   - The system must write every income record to the user's permanent, immutable transaction history.
-  - System Note: The account balance update (Req-6) and the transaction ledger log (Req-7) must execute as an atomic transaction (either both succeed or both fail) to prevent data mismatch.
+  - System Note: The account balance mutation and transaction ledger update must be treated as a single logical transaction. Both changes must be persisted together through the staging-file and atomic replacement strategy. The active in-memory state must only be updated after successful persistence.
 
 ## 1.3 Expenses
 
@@ -43,7 +43,7 @@
 
 - **Req-10: Transaction Ledger Logging**
   - The system must write every expense record to the user's permanent, immutable transaction history.
-  - System Note: The account balance update (Req-9) and the transaction ledger log (Req-10) must execute as an atomic database transaction.
+  - System Note: The account balance mutation and transaction ledger update must be treated as a single logical transaction. Both changes must be persisted together through the staging-file and atomic replacement strategy. The active in-memory state must only be updated after successful persistence.
 
 ## 1.4 Transfers
 
@@ -67,9 +67,12 @@
   - The system must provide a centralized transaction history ledger containing all historical financial activity for the user.
   - Every transaction record in the ledger must explicitly display: unique transaction ID, classification type (INCOME, EXPENSE, TRANSFER), timestamp, amount, primary account(s) involved, category (mandatory for expenses), and an optional descriptive label.
 
-- **Req-15: History Optimization & Scalability (Large Data Volumes)**
-  - To ensure performance under large volumes of data, the system must implement server-side pagination, defaulting to 25 records per page.
-  - The system must display records sorted in reverse-chronological order (newest transactions first) by default.
+- **Req-15: Transaction History Pagination and Scalability**
+  - The system must implement application-level pagination when retrieving transaction history records.
+  - The default page size must be 25 records per page.
+  - The user must be able to navigate between available transaction history pages through the CLI interface.
+  - Transaction records must be sorted in reverse-chronological order (newest transactions first) by default.
+  - Pagination must be applied after the relevant filtering and sorting operations have been completed.
 
 ## 1.6 Search and Filtering
 
@@ -82,8 +85,9 @@
     - **Quantitative Range:** Inclusive minimum and maximum monetary amounts (e.g., Amount >= Min AND Amount <= Max).
 
 - **Req-18: Graceful Empty-State Handling**
-  - When a compound filter yields zero matches, the backend system must return an empty dataset payload (e.g., HTTP 200 with an empty list []) rather than an error block.
-  - The user interface must display a clear, non-intrusive "No matching transactions found" state with an option to reset filters.
+  - When a search or compound filter produces zero matching transactions, the Business Logic Layer must return an empty collection rather than raising an exception.
+  - The presentation layer must detect the empty collection and display a clear, non-intrusive "No matching transactions found" message.
+  - The CLI interface must provide an option to reset the active filters and return to the unfiltered transaction history.
 
 ## 1.7 Balances
 
@@ -234,9 +238,13 @@
   - **Ambiguity:** The prompt states that duplicate account names must be rejected but does not clarify string evaluation limits regarding capitalization.
   - **Resolution:** The system will strictly enforce case-insensitive evaluation across all string boundaries (e.g., "Cash" matches "cash") to proactively prevent data redundancy.
 
-- **AMB-03: Persistence**
-  - **Ambiguity:** The prompt states that transaction history must remain useful over time but does not specify a storage medium.
-  - **Resolution:** The system persists data locally using a structured JSON flat-file/SQLite database rather than keeping it strictly in-memory, ensuring user data survives terminal sessions.
+- **AMB-03: Persistence Technology Selection**
+  - **Ambiguity:** The original requirements specify persistent transaction history but do not prescribe a storage technology.
+  - **Resolution:** The system will use a structured JSON flat-file as its exclusive persistence mechanism. SQLite and other database management systems are explicitly excluded from the current implementation.
+  - **Justification:** JSON provides a lightweight, human-readable persistence mechanism suitable for the application's single-user, single-process execution environment. It integrates directly with Python's native `json` module and supports the existing Data Access Layer architecture.
+  - **Trade-off:** JSON does not provide native database indexing, query optimization, or transactional rollback mechanisms. Consequently, large transaction histories will increase file parsing, serialization, filtering, and pagination costs.
+
+---
 
 # 5. Architecture & Layout Blueprint
 
@@ -248,11 +256,26 @@
 
 - **Data Access Layer (file_manager/):** Isolates all disk I/O mutations. Handles loading parsing tasks and serializing JSON payloads to flat storage files securely.
 
-### Data Flow Direction
+### Data/Execution Flow
 
 ```text
-[ Presentation Layer (UI) ] ──> [ Business Logic Layer ] <──> [ Data Access Layer ]
-````
+             USER
+              |
+              v
+      PRESENTATION LAYER
+           (ui.py)
+              |
+              v
+      BUSINESS LOGIC LAYER
+        (wallet_engine.py)
+              |
+              v
+        DATA ACCESS LAYER
+          (storage.py)
+              |
+              v
+       LOCAL JSON STORAGE
+```
 
 ## 5.2 Project Structure
 
@@ -335,27 +358,42 @@ json
 }
 ```
 
+---
+
 # 6. Persistence Architecture & Integrity Guard
 
-## Serialization Lifecycle (json.dump / json.load)
+## 6.1 Serialization Lifecycle (json.dump / json.load)
 
 - **Data Extraction (Deserialization):** Upon application boot, the Data Access Layer reading utility utilizes Python's native json.load() function to read the local storage file. It parses the raw character blocks into an operational native Python dictionary structure for business engine execution.
 - **Data Compression (Serialization):** When transaction logs are updated, state properties are converted back into a valid JSON string mapping payload via Python’s json.dump() method with a strict indentation format to preserve human-readable scannability.
 
-## Atomic Write Fail-Safe Strategy
+## 6.2 Atomic Write Fail-Safe Strategy
 
 - To prevent structural data corruption during file I/O operations (e.g., if the user accidentally closes the terminal execution stream mid-write), the system forbids writing directly into the active database file.
 - The application must write the fully serialized payload string into a hidden temporary staging file first (.storage.json.tmp).
 - Once the I/O system verifies a complete, non-truncated flush to disk, it executes a low-level atomic rename operation using os.replace(".storage.json.tmp", "storage.json"). This ensures that even if a power loss occurs, the application state remains stable, rollback-compliant, and uncorrupted.
 
-6.2 In-Memory State Consistency and Transaction Commit
-The system must never directly mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
-Before executing any financial transaction, the Business Logic Layer must create a temporary copy of the current application state.
-All proposed account balance mutations and transaction ledger additions must be applied exclusively to this temporary state.
-The Data Access Layer must serialize and persist the complete temporary state using the established staging-file and atomic replacement strategy.
-Only after successful completion of the file replacement operation may the Business Logic Layer commit the temporary state as the new active in-memory application state.
-If persistence fails at any stage, the temporary state must be discarded, the original in-memory state must remain unchanged, and a DatabaseWriteException must be raised.
-The user interface must display an appropriate error message without reporting the transaction as successful.
+## 6.3 In-Memory State Consistency and Transaction Commit
+
+- The system must never directly mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
+- Before executing any financial transaction, the Business Logic Layer must create a temporary copy of the current application state.
+- All proposed account balance mutations and transaction ledger additions must be applied exclusively to this temporary state.
+- The Data Access Layer must serialize and persist the complete temporary state using the established staging-file and atomic replacement strategy.
+- Only after successful completion of the file replacement operation may the Business Logic Layer commit the temporary state as the new active in-memory application state.
+- If persistence fails at any stage, the temporary state must be discarded, the original in-memory state must remain unchanged, and a `DatabaseWriteException` must be raised.
+- The user interface must display an appropriate error message without reporting the transaction as successful.
+
+## 6.4 Persistence Scalability Constraints
+
+- The application will use a single structured JSON file as its exclusive persistence mechanism.
+- The system is designed for a single-user, single-process environment with moderate transaction volumes.
+- The accepted operational capacity for the current release is up to **10,000 historical transaction records**.
+- Transaction retrieval, compound filtering, sorting, and pagination will be performed in application memory after loading the JSON dataset.
+- Pagination will limit the number of records returned to the presentation layer but will not eliminate the computational cost of loading and processing the underlying transaction collection.
+- Every successful financial operation requires serialization and replacement of the complete JSON storage file. Consequently, persistence costs will increase as the dataset grows.
+- Transaction volumes exceeding the accepted operational capacity will require a reassessment of the persistence architecture, with SQLite identified as the preferred migration path.
+
+---
 
 # 7.0 Error Handlling
 

@@ -195,6 +195,20 @@
     - The system must explicitly reject any transaction containing a date later than the current calendar date.
     - Transactions dated on the current calendar date or any previous valid calendar date must be accepted.
 
+- **BR-18: Financial State Authority and Balance Consistency**
+    - The transaction ledger shall serve as the authoritative source of financial truth for all account balances.
+    - The acc_bal attribute stored within each account shall serve as a cached representation of the account's current calculated balance.
+    - Every successful INCOME, EXPENSE, or TRANSFER operation must update the affected account balance and append the corresponding transaction record as a single atomic operation.
+    - The system must guarantee that the stored account balance remains mathematically consistent with the cumulative net effect of all associated historical ledger transactions.
+    - If a discrepancy is detected between the stored account balance and the ledger-derived balance, the ledger-derived value shall take precedence, and the stored balance must be recalculated and corrected.
+
+- **BR-19: Balance Reconciliation**
+    - The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
+    - The reconciliation process must account for all INCOME, EXPENSE, and TRANSFER transactions associated with each account.
+    - The reconciliation process must identify discrepancies between stored balances and ledger-derived balances.
+    Any detected discrepancy must be corrected using the ledger-derived balance.
+
+	
 # 3. Assumptions
 
 - **ASM-01: Single-User Execution Environment**

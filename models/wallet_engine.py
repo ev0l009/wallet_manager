@@ -27,10 +27,8 @@ from exceptions.errors import (
 
 class WalletEngine:
     """Coordinates business workflows and manages application state."""
-    ACC: Final[str] = "accounts"
-    TRX: Final[str] = "transactions"
-    ACC_ID_PREFFIX: Final[str] = "acc"
-    TRX_ID_PREFFIX: Final[str] = "trx"
+    ACC_ID_PREFIX: Final[str] = "acc"
+    TRX_ID_PREFIX: Final[str] = "trx"
 
     def __init__(
         self, 
@@ -60,7 +58,7 @@ class WalletEngine:
 
     #     self.storage.save(self.data)
 
-    def generate_id(self, preffix: str, field: str) -> str:
+    def generate_id(self, prefix: str) -> str:
         """Generate a unique identifier for an account or transaction.
 
         IDs are generated using a cryptographically secure random
@@ -79,14 +77,13 @@ class WalletEngine:
             suffix = "".join(
                 secrets.choice(pool) for _ in range(5)
             )
-
             gen_id= f"{prefix}_{suffix}"
 
-            if field == self.ACC:
-                if gen_id not in self.data[self.ACC]:
+            if prefix == self.ACC_ID_PREFIX:
+                if gen_id not in self.data["accounts"]:
                     return gen_id
 
-            elif field == self.TRX:
+            elif prefix == self.TRX_ID_PREFIX:
                 if not any(
                     trx.id == gen_id
                     for trx in self.data[self.TRX]

@@ -1,0 +1,8 @@
+2026-11-12 14:45:28 | ERROR | wallet_manager | Unexpected application failure.
+Traceback (most recent call last):
+  File "/home/student/wallet_manager/main.py", line 99, in <module>
+    wallet_runner()
+  File "/home/student/wallet_manager/main.py", line 35, in wallet_runner
+    wallet.load()
+    ^^^^^^^^^^^
+AttributeError: 'WalletEngine' object has no attribute 'load'

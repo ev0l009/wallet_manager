@@ -1,0 +1,22 @@
+wallet_manager/
+│
+├── main.py
+│
+├── ui/
+│   ├── __init__.py
+│   ├── menus.py
+│   └── account_views.py
+│
+├── models/
+│   ├── __init__.py
+│   ├── wallet_engine.py
+│   ├── account.py
+│   ├── transaction.py
+│   └── types.py
+│
+├── file_manager/
+│   └── storage.py
+│
+└── utils/
+    ├── validators.py
+    └── exceptions.py

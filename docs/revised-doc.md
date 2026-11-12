@@ -710,6 +710,8 @@ wallet_manager/
 │
 ├── ui/                         # Presentation Tier
 │   ├── __init__.py
+│   ├── menu_states.py          # Valid menu states (Enum)
+│   ├── menu_machine.py         # State machine and navigation logic
 │   └── ui.py                   # Menu engine and terminal input collectors
 │
 ├── models/                     # Domain Model
@@ -736,7 +738,8 @@ wallet_manager/
 ├── utils/                      # Shared Components
 │   ├── __init__.py
 │   ├── validators.py           # Reusable monetary and date validators
-│   ├── constants.py            # Supported expense categories and constants
+│   ├── constants.py 
+│   ├── logger.py             # Supported expense categories and constants
 │   └── date_provider.py        # Injectable date provider
 │
 ├── tests/                      # Automated Testing Suite
@@ -750,6 +753,9 @@ wallet_manager/
 │
 ├── docs/                       # Supporting Documentation
 │   └── architecture.md
+│
+├── logs/
+│   └── .gitkeep
 │
 ├── README.md                   # Installation and usage documentation
 │

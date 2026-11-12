@@ -1,7 +1,10 @@
 from exceptions.errors import (
     InvalidAccountNameError,
-    DuplicateAccountNameError
+    DuplicateAccountNameError,
+    InvalidDateError
 )
+
+from datetime import datetime, date
 
 def get_valid_acc_name(existing_names: dict[str, str]) -> str:
     """Collect and validate a new account name.
@@ -43,3 +46,24 @@ def get_valid_acc_name(existing_names: dict[str, str]) -> str:
         )
 
     return cleaned_name
+
+
+
+def get_valid_date() -> date:
+    raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+    
+    try:
+        # Automatically rejects invalid calendar dates (e.g., Feb 30, Month 13)
+        parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+    except ValueError as err:
+        raise InvalidDateError(
+            f"'{raw_date}' is not a valid calendar date."
+        ) from err
+
+    # Prevent future dates
+    if parsed_date > date.today():
+        raise InvalidDateError(
+            f"'{raw_date}' cannot be in the future (today is {date.today()})."
+        )
+
+    return parsed_date

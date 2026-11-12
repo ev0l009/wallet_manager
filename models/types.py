@@ -23,3 +23,10 @@ class AccStat(Enum):
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+
+class TrxDict(TypedDict):
+    """Base serialization schema for all application transactions."""
+
+    id: str
+    amount: int
+    transaction_date: str

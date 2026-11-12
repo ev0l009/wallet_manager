@@ -11,12 +11,18 @@ from exceptions.errors import (
     InvalidAmountError
 )
 
+from models.types import (
+    TrxDict
+)
+
+from datetime import date
+
 @dataclass(frozen=True, kw_only=True)
 class Transaction:
     """Base immutable schema for all financial transaction entities."""
     id: str
     amount: int
-    timestamp: datetime | str = field(default_factory=generate_timestamp)
+    transaction_date: date
 
     def __post_init__(self):
         if not self.id.strip():
@@ -32,5 +38,5 @@ class Transaction:
         return {
             "id": data["id"],
             "amount": data["amount"],
-            "timestamp": data.get("timestamp") or generate_timestamp(),
+            "transaction_date": data.get("transaction_date")
         }

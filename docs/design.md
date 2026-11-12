@@ -59,7 +59,7 @@
 - **Req-13: Independent Transaction Classification**
   - The system must log the transfer to the immutable transaction history using a specific classification type (TRANSFER).
   - The system must isolate TRANSFER types from standalone INCOME or EXPENSE totals to prevent artificial inflation of financial reports.
-  - System Note: The dual balance updates (Req-12) and the ledger logging (Req-13) must execute as a single atomic database transaction.
+  - System Note: The account balance mutation and transaction ledger update must be treated as a single logical transaction. Both changes must be persisted together through the staging-file and atomic replacement strategy. The active in-memory state must only be updated after successful persistence.
 
 ## 1.5 Transaction History
 
@@ -457,8 +457,13 @@ The system does not provide database-level transaction isolation, multi-process 
 - The accepted operational capacity for the current release is up to **10,000 historical transaction records**.
 - Transaction retrieval, compound filtering, sorting, and pagination will be performed in application memory after loading the JSON dataset.
 - Pagination will limit the number of records returned to the presentation layer but will not eliminate the computational cost of loading and processing the underlying transaction collection.
-- Every successful financial operation requires serialization and replacement of the complete JSON storage file. Consequently, persistence costs will increase as the dataset grows.
-- Transaction volumes exceeding the accepted operational capacity will require a reassessment of the persistence architecture, with SQLite identified as the preferred migration path.
+- The application must monitor the number of historical transaction records stored in the JSON ledger.
+- When the transaction count reaches 9,000 records, the system must display a capacity warning informing the user that the application is approaching its supported transaction limit.
+- The application must enforce a maximum supported capacity of 10,000 historical transaction records.
+- Once the transaction count reaches 10,000 records, the system must reject any new INCOME, EXPENSE, or TRANSFER operation that would increase the transaction count beyond the supported limit.
+- Capacity-limit rejection must occur before any proposed account balance mutation, ledger modification, or persistence operation. The existing in-memory state and persisted JSON file must remain unchanged.
+- The user must receive a clear notification explaining that the transaction capacity has been reached and that a persistence architecture reassessment is required before additional transactions can be recorded.
+- Transaction volumes exceeding the supported capacity must require an explicit architecture reassessment, with SQLite identified as the preferred migration path.
 
 ---
 
@@ -481,6 +486,8 @@ The system wraps standard, low-level Python runtime errors into explicit, high-l
 | Insufficient Funds | Transaction amount exceeds the available balance during a withdrawal or transfer. | Evaluation check evaluates to Amount \> Account.balance. | InsufficientFundsError | "Error: Transaction aborted. Insufficient funds in the selected source account." |
 | Self Transfer Violation | User attempts to move money to the exact same account. | Equality match evaluates to Source\_ID == Target\_ID. | SelfTransferError | "Error: Transfer rejected. Source and destination accounts cannot be the same entity." |
 | Inactive Account Mutation | User attempts to post an entry involving a deactivated account. | Lifecycle validation check flags status as INACTIVE. | InactiveAccountError | "Error: Action blocked. Cannot post transactions to or from a deactivated account." |
+| Transaction Capacity Exceeded | The historical transaction count has reached the maximum supported capacity of 10,000 records. | Application-level capacity validation failure. | TransactionCapacityExceededError | "Error: Transaction capacity reached. The application must undergo a persistence architecture upgrade before additional transactions can be recorded." |
+
 
 ### 7.1.1: Monetary Input Parsing and Conversion:
 
@@ -564,6 +571,8 @@ Unit tests isolate specific business functions and validation hooks. Components 
 | Date Validation | Failure Path | test_future_date_is_rejected | Transaction date: 2026-11-12; fixed today: 2026-11-11 | Raises InvalidDateError |
 | Date Validation | Failure Path | test_invalid_calendar_date_is_rejected | Transaction date: 2026-02-30 | Raises InvalidDateError |
 | Date Validation | Failure Path | test_alternative_date_format_is_rejected | Transaction date: 2026/11/11 | Raises InvalidDateError |
+| Transaction Capacity Validation | Failure Path | test_transaction_limit_blocks_new_entry | Existing ledger contains 10,000 records; attempt to record a valid INCOME transaction. | Raises TransactionCapacityExceededError; no balance mutation, ledger modification, or disk write occurs. |
+| Transaction Capacity Validation | Edge Case | test_transaction_limit_allows_final_entry | Existing ledger contains 9,999 records; attempt to record a valid INCOME transaction. | Transaction succeeds; ledger contains exactly 10,000 records. |
 
 
 ## 8.2 Integration Testing (Cross-Layer Subsystem Communication)

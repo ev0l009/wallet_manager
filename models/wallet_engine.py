@@ -86,7 +86,7 @@ class WalletEngine:
             elif prefix == self.TRX_ID_PREFIX:
                 if not any(
                     trx.id == gen_id
-                    for trx in self.data[self.TRX]
+                    for trx in self.data["transactions"]
                 ):
                     return gen_id
 
@@ -110,7 +110,7 @@ class WalletEngine:
         # Collect existing account names for uniqueness validation.
         existing_names = {
             acc.id: acc.acc_name
-            for acc in self.data[self.ACC].values()
+            for acc in self.data["accounts"].values()
         }
 
         # Collect and validate account details.
@@ -130,16 +130,15 @@ class WalletEngine:
             id=account_id,
             acc_name=valid_name,
             acc_type=acc_type,
-            acc_bal=0
         )
 
         # Prepare an isolated proposed application state.
         proposed_data = deepcopy(self.data)
 
-        proposed_data[self.ACC][account_id] = new_account
+        proposed_data["accounts"][account_id] = new_account
 
         # Persist before committing the new in-memory state.
-        self.storage.save(proposed_data)
+        # self.storage.save(proposed_data)
 
         self.data = proposed_data
 
@@ -159,7 +158,7 @@ class WalletEngine:
             EntityNotFoundError: If the account does not exist.
         """
 
-        account = self.data[self.ACC].get(account_id)
+        account = self.data["accounts"].get(account_id)
 
         if account is None:
             raise EntityNotFoundError(
@@ -173,8 +172,8 @@ class WalletEngine:
 
         return [
             account
-            for account in self.data[self.ACC].values()
-            if account.status == "ACTIVE"
+            for account in self.data["accounts"].values()
+            if account.acc_status == "ACTIVE"
         ]
 
     def get_inactive_accounts(self) -> list[Account]:
@@ -182,6 +181,6 @@ class WalletEngine:
 
         return [
             account
-            for account in self.data[self.ACC].values()
-            if account.status == "INACTIVE"
+            for account in self.data["accounts"].values()
+            if account.acc_status == "INACTIVE"
         ]

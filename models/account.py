@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from exceptions.errors import (
     EntityNotFoundError,
     InvalidAccountNameError,
-    InvalidAccountTypeError
+    InvalidAccountTypeError,
+    InvalidAmountError
 )
 
 from models.types import (
@@ -47,5 +48,50 @@ class Account:
         else:
             self._created_at = created_at if created_at else datetime.now(timezone.utc).replace(microsecond=0)
 
-        self.balance =  null  
         self._acc_status = AccStat.ACTIVE.value
+
+
+    # --- WRITE-ONCE INVARIANT PROPERTIES ---
+ 
+    @property
+    def id(self) -> str:
+        """str: The unique, unalterable identifier for this account instance."""
+        return self._id
+
+    @property
+    def acc_type(self) -> str:
+        """str: The classification type (e.g., bank, cash, savings) assigned on creation."""
+        return self._acc_type
+
+    @property
+    def created_at(self) -> datetime:
+        """datetime: The immutable record creation timestamp."""
+        return self._created_at
+
+
+    # --- MUTABLE LAYER PROPERTIES ---
+
+    @property
+    def balance(self) -> int:
+        """int: The current stored monetary asset value."""
+        return self._balance
+
+    @balance.setter
+    def balance(self, amount: int) -> None:
+        if type(amount) is not int:
+            raise InvalidAmountError("Amount must be a valid whole number integer.")
+        if amount < 0:
+            raise InvalidAmountError("Account balance cannot drop below zero.")
+        self._balance = amount
+
+    @property
+    def acc_status(self) -> str:
+        """str: The operational availability lifecycle state of the account."""
+        return self._acc_status
+
+    # @acc_status.setter
+    # def acc_status(self, value: str) -> None:
+    #     allowed_statuses = {status.value for status in AccStat}
+    #     if value not in allowed_statuses:
+    #         raise InvalidAccountStatusError(f"Invalid account status. Must be one of {allowed_statuses}")
+    #     self._acc_status = value

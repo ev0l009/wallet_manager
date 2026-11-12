@@ -1,2 +1,202 @@
+"""Core business workflow engine for the Wallet Manager application.
+
+Coordinates account management, financial operations, domain validation,
+and application state transitions.
+
+The engine delegates persistence operations to the Data Access Layer
+and contains no direct terminal input or output operations.
+"""
+
+import secrets
+import string
+
+from copy import deepcopy
+from typing import Final
+
+from models.account import Account
+from models.types import WalletEngineData
+from file_manager.storage import Storage
+
+from utils.validators import get_valid_acc_name, get_val_acc_type
+
+from exceptions import (
+    AccNameError,
+    DuplicateAccountNameError,
+    InvalidAccountTypeError,
+)
+
+
 class WalletEngine:
-    pass
+    """Coordinates business workflows and manages application state."""
+
+    ACC: Final[str] = "accounts"
+    TRX: Final[str] = "transactions"
+
+    def __init__(self, storage: Storage) -> None:
+        """Initialize the wallet engine.
+
+        Args:
+            storage: Data Access Layer responsible for loading and
+                persisting application data.
+        """
+
+        self.storage = storage
+
+        self.data: WalletEngineData = {
+            self.ACC: {},
+            self.TRX: []
+        }
+
+    def load(self) -> None:
+        """Load persisted application data into active memory."""
+
+        self.data = self.storage.load()
+
+    def save(self) -> None:
+        """Persist the current application state through the storage layer."""
+
+        self.storage.save(self.data)
+
+    def generate_id(self, prefix: str) -> str:
+        """Generate a unique identifier for an account or transaction.
+
+        IDs are generated using a cryptographically secure random
+        character pool. Existing records are checked to prevent collisions.
+
+        Args:
+            prefix: Identifier prefix, such as 'acc' or 'trx'.
+
+        Returns:
+            A unique prefixed identifier.
+        """
+
+        pool = string.ascii_letters + string.digits
+
+        while True:
+            suffix = "".join(
+                secrets.choice(pool) for _ in range(5)
+            )
+
+            generated_id = f"{prefix}_{suffix}"
+
+            if prefix == "acc":
+                if generated_id not in self.data[self.ACC]:
+                    return generated_id
+
+            elif prefix == "trx":
+                if not any(
+                    trx.id == generated_id
+                    for trx in self.data[self.TRX]
+                ):
+                    return generated_id
+
+            else:
+                raise ValueError(
+                    f"Unsupported identifier prefix: {prefix}"
+                )
+
+    def create_account(
+        self,
+        name: str,
+        account_type: str
+    ) -> Account:
+        """Validate and create a new financial account.
+
+        New accounts always begin with zero Kobo and ACTIVE status.
+
+        Account-name uniqueness is checked against both active and
+        inactive accounts.
+
+        The proposed application state is persisted before it becomes
+        the new active in-memory state.
+
+        Args:
+            name: User-provided account name.
+            account_type: Selected account classification.
+
+        Returns:
+            The newly created Account entity.
+
+        Raises:
+            AccNameError: If the account name violates naming rules.
+            DuplicateAccountNameError: If the name already exists.
+            InvalidAccountTypeError: If the account type is unsupported.
+        """
+
+        # Include inactive accounts in uniqueness validation.
+        existing_names = {
+            acc.id: acc.acc_name
+            for acc in self.data[self.ACC].values()
+        }
+
+        # Validate and normalize the account name.
+        try:
+            valid_name = get_valid_acc_name(existing_names)
+        except ValueError as err:
+            print(err)
+
+        # Validate the selected account classification.
+        valid_type = get_val_acc_type(account_type)
+
+        # Generate a system-controlled account identifier.
+        account_id = self.generate_id("acc")
+
+        # Construct the account with its mandatory initial state.
+        new_account = Account(
+            id=account_id,
+            acc_name=valid_name,
+            acc_type=valid_type,
+            amount=0
+        )
+
+        # Prepare an isolated proposed application state.
+        proposed_data = deepcopy(self.data)
+
+        proposed_data[self.ACC][account_id] = new_account
+
+        # Persist before committing the new in-memory state.
+        self.storage.save(proposed_data)
+
+        self.data = proposed_data
+
+        return new_account
+
+    def get_account(self, account_id: str) -> Account:
+        """Retrieve an account using its unique identifier.
+
+        Args:
+            account_id: System-generated account identifier.
+
+        Returns:
+            The requested Account entity.
+
+        Raises:
+            EntityNotFoundError: If the account does not exist.
+        """
+
+        account = self.data[self.ACC].get(account_id)
+
+        if account is None:
+            raise EntityNotFoundError(
+                f"Account '{account_id}' does not exist."
+            )
+
+        return account
+
+    def get_active_accounts(self) -> list[Account]:
+        """Return all accounts currently marked as ACTIVE."""
+
+        return [
+            account
+            for account in self.data[self.ACC].values()
+            if account.status == "ACTIVE"
+        ]
+
+    def get_inactive_accounts(self) -> list[Account]:
+        """Return all accounts currently marked as INACTIVE."""
+
+        return [
+            account
+            for account in self.data[self.ACC].values()
+            if account.status == "INACTIVE"
+        ]

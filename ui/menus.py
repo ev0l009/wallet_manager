@@ -53,7 +53,7 @@ def get_acc_type() -> str:
         "1": AccType.BANK.value,
         "2": AccType.CASH.value,
         "3": AccType.SAVINGS.value,
-        "4": AccType.MOBILE_WALLET.value,
+        "4": AccType.MOBILE.value,
     }
 
     print("\n  SELECT ACCOUNT TYPE")

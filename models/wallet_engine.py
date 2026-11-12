@@ -15,7 +15,7 @@ from typing import Final
 
 from models.account import Account
 from models.types import WalletEngineData
-from file_manager.storage import Storage
+# from file_manager.storage import Storage
 
 from utils.validators import get_valid_acc_name
 
@@ -25,14 +25,15 @@ from exceptions.errors import (
     EntityNotFoundError
 )
 
-
 class WalletEngine:
     """Coordinates business workflows and manages application state."""
-
     ACC: Final[str] = "accounts"
     TRX: Final[str] = "transactions"
 
-    def __init__(self, storage: Storage) -> None:
+    def __init__(
+        self, 
+        # storage: "Storage"
+    ) -> None:
         """Initialize the wallet engine.
 
         Args:
@@ -40,22 +41,22 @@ class WalletEngine:
                 persisting application data.
         """
 
-        self.storage = storage
+        # self.storage = storage
 
         self.data: WalletEngineData = {
             self.ACC: {},
             self.TRX: []
         }
 
-    def load(self) -> None:
-        """Load persisted application data into active memory."""
+    # def load(self) -> None:
+    #     """Load persisted application data into active memory."""
 
-        self.data = self.storage.load()
+    #     self.data = self.storage.load()
 
-    def save(self) -> None:
-        """Persist the current application state through the storage layer."""
+    # def save(self) -> None:
+    #     """Persist the current application state through the storage layer."""
 
-        self.storage.save(self.data)
+    #     self.storage.save(self.data)
 
     def generate_id(self, prefix: str) -> str:
         """Generate a unique identifier for an account or transaction.

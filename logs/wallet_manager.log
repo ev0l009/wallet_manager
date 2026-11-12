@@ -1,8 +1,13 @@
-2026-11-12 14:45:28 | ERROR | wallet_manager | Unexpected application failure.
+2026-11-12 16:39:01 | ERROR | wallet_manager | Unexpected application failure.
 Traceback (most recent call last):
   File "/home/student/wallet_manager/main.py", line 99, in <module>
     wallet_runner()
-  File "/home/student/wallet_manager/main.py", line 35, in wallet_runner
-    wallet.load()
-    ^^^^^^^^^^^
-AttributeError: 'WalletEngine' object has no attribute 'load'
+  File "/home/student/wallet_manager/main.py", line 49, in wallet_runner
+    wallet.create_account()
+  File "/home/student/wallet_manager/models/wallet_engine.py", line 120, in create_account
+    acc_type = get_acc_type()
+               ^^^^^^^^^^^^^^
+  File "/home/student/wallet_manager/ui/menus.py", line 56, in get_acc_type
+    "4": AccType.MOBILE_WALLET.value,
+         ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'AccType' has no attribute 'MOBILE_WALLET'

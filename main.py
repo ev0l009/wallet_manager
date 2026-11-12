@@ -8,7 +8,7 @@ Unexpected runtime exceptions are captured at the application boundary and recor
 
 import sys
 
-from models.wallet_engine import WalletEngine 
+from models.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
 from ui.menus import get_main_menu_state
 
@@ -32,7 +32,7 @@ def wallet_runner() -> None:
 
     # Initialize the wallet engine and load persisted application data.
     wallet = WalletEngine()
-    wallet.load()
+    # wallet.load()
 
     # Start the application at the main dashboard.
     current_state = MenuState.DASHBOARD.value

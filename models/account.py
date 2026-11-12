@@ -12,6 +12,11 @@ from exceptions.errors import (
     InvalidAccountTypeError
 )
 
+from models.types import (
+    AccType,
+    AccStat
+)
+
 class Account:
     """Encapsulates account configurations, state constraints, and balance updates.""" 
 
@@ -20,7 +25,6 @@ class Account:
         id: str,
         acc_name: str,
         acc_type: str,
-        amount: int,
         created_at: datetime | str | None = None,
     ):
         if not id or not id.strip():
@@ -43,5 +47,5 @@ class Account:
         else:
             self._created_at = created_at if created_at else datetime.now(timezone.utc).replace(microsecond=0)
 
-        self.balance = amount  
+        self.balance =  null  
         self._acc_status = AccStat.ACTIVE.value

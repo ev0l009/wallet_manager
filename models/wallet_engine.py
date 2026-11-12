@@ -17,12 +17,12 @@ from models.account import Account
 from models.types import WalletEngineData
 from file_manager.storage import Storage
 
-from utils.validators import get_valid_acc_name, get_val_acc_type
+from utils.validators import get_valid_acc_name
 
-from exceptions import (
-    AccNameError,
-    DuplicateAccountNameError,
-    InvalidAccountTypeError,
+from ui.menus import get_acc_type
+
+from exceptions.errors import (
+    EntityNotFoundError
 )
 
 
@@ -95,48 +95,32 @@ class WalletEngine:
                     f"Unsupported identifier prefix: {prefix}"
                 )
 
-    def create_account(
-        self,
-        name: str,
-        account_type: str
-    ) -> Account:
-        """Validate and create a new financial account.
+    def create_account(self) -> Account | None:
+        """Guide account creation and persist the resulting account.
 
         New accounts always begin with zero Kobo and ACTIVE status.
-
-        Account-name uniqueness is checked against both active and
-        inactive accounts.
-
-        The proposed application state is persisted before it becomes
-        the new active in-memory state.
-
-        Args:
-            name: User-provided account name.
-            account_type: Selected account classification.
+        Account-name uniqueness is checked against active and inactive
+        accounts.
 
         Returns:
-            The newly created Account entity.
-
-        Raises:
-            AccNameError: If the account name violates naming rules.
-            DuplicateAccountNameError: If the name already exists.
-            InvalidAccountTypeError: If the account type is unsupported.
+            Account: The newly created account.
+            None: If user input validation fails.
         """
 
-        # Include inactive accounts in uniqueness validation.
+        # Collect existing account names for uniqueness validation.
         existing_names = {
             acc.id: acc.acc_name
             for acc in self.data[self.ACC].values()
         }
 
-        # Validate and normalize the account name.
+        # Collect and validate account details.
         try:
             valid_name = get_valid_acc_name(existing_names)
-        except ValueError as err:
-            print(err)
+            acc_type = get_acc_type()
 
-        # Validate the selected account classification.
-        valid_type = get_val_acc_type(account_type)
+        except ValueError as err:
+            print(f"\n  [!] Validation Error: {err}")
+            return None
 
         # Generate a system-controlled account identifier.
         account_id = self.generate_id("acc")
@@ -145,8 +129,8 @@ class WalletEngine:
         new_account = Account(
             id=account_id,
             acc_name=valid_name,
-            acc_type=valid_type,
-            amount=0
+            acc_type=acc_type,
+            acc_bal=0
         )
 
         # Prepare an isolated proposed application state.
@@ -159,7 +143,9 @@ class WalletEngine:
 
         self.data = proposed_data
 
+        print("\n  [✓] Account created successfully.")
         return new_account
+
 
     def get_account(self, account_id: str) -> Account:
         """Retrieve an account using its unique identifier.

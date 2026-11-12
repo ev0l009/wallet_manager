@@ -1,27 +1,45 @@
+from exceptions.errors import (
+    InvalidAccountNameError,
+    DuplicateAccountNameError
+)
 
 def get_valid_acc_name(existing_names: dict[str, str]) -> str:
-    """Validates an account name against length constraints and duplicates.
+    """Collect and validate a new account name.
 
     Args:
-        value: The raw string input provided by the user.
-        existing_names: A mapping containing current system account names.
+        existing_names: Mapping of account IDs to existing account names.
 
     Returns:
-        str: The safely stripped, validated account name string.
+        str: Normalized and validated account name.
 
     Raises:
-        AccNameError: If the name is blank, under 3 characters, or a duplicate.
+        InvalidAccountNameError: If the name violates naming constraints.
+        DuplicateAccountNameError: If the name already exists.
     """
-    raw_name = input("  Enter account name → ").strip()
+
+    raw_name = input("  Enter account name → ")
     cleaned_name = raw_name.strip()
 
     if not cleaned_name:
-        raise ValueError("Account name cannot be empty.")
+        raise InvalidAccountNameError(
+            "Account name cannot be empty."
+        )
 
-    if len(cleaned_name) < 3:
-        raise ValueError("Account name cannot be less than 3 characters.")
+    if not 4 <= len(cleaned_name) <= 20:
+        raise InvalidAccountNameError(
+            "Account name must contain between 4 and 20 characters."
+        )
 
-    if cleaned_name in existing_names.values():
-        raise ValueError("An account with this name already exists.")
+    normalized_name = cleaned_name.casefold()
+
+    existing_normalized_names = {
+        name.strip().casefold()
+        for name in existing_names.values()
+    }
+
+    if normalized_name in existing_normalized_names:
+        raise DuplicateAccountNameError(
+            "An account with this name already exists."
+        )
 
     return cleaned_name

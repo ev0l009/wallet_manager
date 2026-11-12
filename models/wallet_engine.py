@@ -95,7 +95,7 @@ class WalletEngine:
                     f"Unsupported identifier prefix: {prefix}"
                 )
 
-    def create_account(self) -> Account | None:
+    def create_account(self) -> None:
         """Guide account creation and persist the resulting account.
 
         New accounts always begin with zero Kobo and ACTIVE status.
@@ -144,7 +144,6 @@ class WalletEngine:
         self.data = proposed_data
 
         print("\n  [✓] Account created successfully.")
-        return new_account
 
 
     def get_account(self, account_id: str) -> Account:

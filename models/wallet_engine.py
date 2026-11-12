@@ -29,6 +29,8 @@ class WalletEngine:
     """Coordinates business workflows and manages application state."""
     ACC: Final[str] = "accounts"
     TRX: Final[str] = "transactions"
+    ACC_ID_PREFFIX: Final[str] = "acc"
+    TRX_ID_PREFFIX: Final[str] = "trx"
 
     def __init__(
         self, 
@@ -44,8 +46,8 @@ class WalletEngine:
         # self.storage = storage
 
         self.data: WalletEngineData = {
-            self.ACC: {},
-            self.TRX: []
+            "accounts": {},
+            "transactions": []
         }
 
     # def load(self) -> None:
@@ -58,7 +60,7 @@ class WalletEngine:
 
     #     self.storage.save(self.data)
 
-    def generate_id(self, prefix: str) -> str:
+    def generate_id(self, preffix: str, field: str) -> str:
         """Generate a unique identifier for an account or transaction.
 
         IDs are generated using a cryptographically secure random
@@ -70,7 +72,7 @@ class WalletEngine:
         Returns:
             A unique prefixed identifier.
         """
-
+        
         pool = string.ascii_letters + string.digits
 
         while True:
@@ -78,18 +80,18 @@ class WalletEngine:
                 secrets.choice(pool) for _ in range(5)
             )
 
-            generated_id = f"{prefix}_{suffix}"
+            gen_id= f"{prefix}_{suffix}"
 
-            if prefix == "acc":
-                if generated_id not in self.data[self.ACC]:
-                    return generated_id
+            if field == self.ACC:
+                if gen_id not in self.data[self.ACC]:
+                    return gen_id
 
-            elif prefix == "trx":
+            elif field == self.TRX:
                 if not any(
-                    trx.id == generated_id
+                    trx.id == gen_id
                     for trx in self.data[self.TRX]
                 ):
-                    return generated_id
+                    return gen_id
 
             else:
                 raise ValueError(

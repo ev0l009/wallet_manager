@@ -6,5 +6,5 @@ if TYPE_CHECKING:
     from models.transaction import Transaction
 
 class WalletEngineData(TypedDict):
-    accounts: { str, Account }
+    accounts: dict [str, Account ]
     transactions: list [ Transaction ]

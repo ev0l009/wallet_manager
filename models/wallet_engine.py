@@ -238,4 +238,4 @@ class WalletEngine:
         ]
 
     def record_transfer(self):
-        
+        pass

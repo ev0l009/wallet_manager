@@ -83,7 +83,8 @@ def wallet_runner() -> None:
             acc_map = wallet.get_inactive_acc_map()
             source_acc_id = select_acc(acc_map)
             target_acc_id = select_acc( acc_map=acc_map, id_to_skip=source_acc_id)
-            wallet.transfer()
+            if source_acc_id and target_acc_id:
+                wallet.record_transfer()
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

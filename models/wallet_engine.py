@@ -206,5 +206,9 @@ class WalletEngine:
         ])
 
         acc_expense = sum([
-            trx
+            trx.amount
+            for trx in self.data["transactions"]
+            if trx.transaction_type == TrxType.WITHDRAW.value
         ])
+
+        return acc_income - acc_expense

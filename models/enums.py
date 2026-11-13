@@ -30,3 +30,14 @@ class TrxType(Enum):
     TRANSFER = "transfer"
     WITHDRAW = "withdraw"
     DEPOSIT = "deposit"
+
+class ExpCatOpts(Enum):
+    """Valid expense categories"""
+    FOOD = "food"
+    BILLS = "bills"
+    TRANSPORT = "transport"
+    AIRTIME = "airtime"
+    HEALTH = "health"
+    SHOPPING = "shopping"
+    ENTERTAINMENT = "entertainment"
+    OTHERS = "others"

@@ -10,15 +10,21 @@ from exceptions.errors import (
     EntityNotFoundError,
     InvalidAmountError,
     SelfTransferError,
-    InvalidTransactionTypeError
+    InvalidTransactionTypeError,
+    InvalidCategoryError
 )
 
 from models.types import (
     TrxDict,
-    TransferTrxDict
+    TransferTrxDict,
+    WithdrawalTrxDict,
+    DepositTrxDict
 )
 
-from models.enums import TrxType
+from models.enums import (
+    TrxType,
+    ExpCatOpts
+)
 
 from datetime import date
 
@@ -94,7 +100,7 @@ class DepositTrx(Transaction):
             "id": self.id,
             "amount": self.amount,
             "acc_id": self.acc_id,
-            "timestamp": self.timestamp,
+            "transaction_date": self.transaction_date,
             "transaction_type": self.transaction_type,
         }
 
@@ -114,7 +120,7 @@ class WithdrawalTrx(Transaction):
         if self.transaction_type != TrxType.WITHDRAW.value:
             raise InvalidTransactionTypeError("Transaction type must be `withdrawal` for withdrawal transactions.")
         if not self.acc_id.strip():
-            raise InvalidIDError("Account ID cannot be empty")
+            raise EntityNotFoundError("Account ID cannot be empty")
         if self.category not in [item.value for item in ExpCatOpts]:
             raise InvalidCategoryError("Invalid category.")
 
@@ -123,7 +129,7 @@ class WithdrawalTrx(Transaction):
         return {
             "id": self.id,
             "amount": self.amount,
-            "timestamp": self.timestamp,
+            "transaction_date": self.transaction_date,
             "category": self.category,
             "acc_id": self.acc_id,
             "transaction_type": self.transaction_type

@@ -17,7 +17,8 @@ from ui.menus import (
 from ui.views import (
     display_active_accounts,
     display_acc_bal,
-    display_transactions
+    display_transactions,
+    display_reports
 )
 
 from utils.logger import configure_logger
@@ -90,7 +91,9 @@ def wallet_runner() -> None:
 
         # Financial reporting operations.
         elif current_state == MenuState.REPORTS.value:
-            wallet.reports()
+            transactions = wallet.get_transactions()
+            if transactions:
+                display_reports(transactions)
             current_state = MenuState.DASHBOARD.value
 
         # Prevent unsupported states from causing an infinite loop.

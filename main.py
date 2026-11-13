@@ -13,7 +13,8 @@ from ui.menu_states import MenuState
 from ui.menus import get_main_menu_state
 from ui.views import (
     display_active_accounts,
-    select_acc
+    select_acc,
+    display_acc_bal
 )
 
 from utils.logger import configure_logger
@@ -59,14 +60,18 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
-            acc_map = wallet.get_acc_map()
+            acc_map = wallet.get_active_acc_map()
             selected_acc = select_acc(acc_map)
             if selected_acc:
                 acc_bal = wallet.get_acc_bal(selected_acc)
+                display_acc_bal(acc_bal)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:
-            wallet.reactivate_acc()
+            acc_map = wallet.get_inactive_acc_map()
+            selected_acc = select_acc(acc_map)
+            if selected_acc:
+                wallet.reactivate_acc(selected_acc)
             current_state = MenuState.DASHBOARD.value
 
         # Financial transaction operations.

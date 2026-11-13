@@ -16,7 +16,8 @@ from typing import Final
 from models.account import Account
 from models.types import WalletEngineData
 from models.enums import (
-    TrxType
+    TrxType,
+    AccStat
 )
 
 # from file_manager.storage import Storage
@@ -177,7 +178,7 @@ class WalletEngine:
         return [
             account
             for account in self.data["accounts"].values()
-            if account.acc_status == "ACTIVE"
+            if account.acc_status == AccStat.ACTIVE.value
         ]
 
     def get_inactive_accounts(self) -> list[Account]:
@@ -186,14 +187,23 @@ class WalletEngine:
         return [
             account
             for account in self.data["accounts"].values()
-            if account.acc_status == "INACTIVE"
+            if account.acc_status == AccStat.ACTIVE.value
         ]
 
-    def get_acc_map(self) -> dict [str, str]:
+    def get_active_acc_map(self) -> dict [str, str]:
 
         return {
             acc.id: acc.acc_name
             for acc in self.data["accounts"].values()
+            if acc.acc_status == AccStat.ACTIVE.value
+        }
+
+    def get_inactive_acc_map(self) -> dict [str, str]:
+    
+        return {
+            acc.id: acc.acc_name
+            for acc in self.data["accounts"].values()
+            if acc.acc_status == AccStat.INACTIVE.value
         }
     
     def get_acc_bal(self, acc_id: str) -> int:
@@ -217,4 +227,5 @@ class WalletEngine:
 
         return acc_income - acc_expense
 
-    # def record_expense(self):
+    def reactivate_acc(self, acc_id: str):
+        self.data["accounts"][acc_id].

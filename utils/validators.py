@@ -72,11 +72,9 @@ def get_valid_acc_name(existing_names: dict[str, str]) -> str:
 
     return cleaned_name
 
+    # raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
 
-
-def get_valid_date() -> date:
-    raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-    
+def get_valid_date(raw_date: str) -> date:    
     try:
         # Automatically rejects invalid calendar dates (e.g., Feb 30, Month 13)
         parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()

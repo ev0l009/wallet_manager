@@ -4,7 +4,7 @@ Defines an immutable data layer structure modeling financial transfers,
 deposits, and withdrawals using Python data classes.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 from exceptions.errors import (
@@ -30,12 +30,12 @@ class Transaction:
     amount: int
     transaction_date: date
     transaction_type: str
-    category: str
-    desc: str
+    category: str | None = None
+    desc: str | None = None
     source_acc_id: str
     target_acc_id: str
     transaction_date: date
-    reverses_transaction_id: str
+    reverses_transaction_id: str | None = None
 
     def __post_init__(self):
         if not self.id.strip():

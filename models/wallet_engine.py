@@ -21,13 +21,12 @@ from models.enums import (
     AccStat
 )
 
-from datetime import date
-
 # from file_manager.storage import Storage
 
 from utils.validators import (
     get_valid_acc_name,
-    convert_to_kobo
+    convert_to_kobo,
+    get_valid_date
 )
 
 from ui.menus import get_acc_type
@@ -247,12 +246,13 @@ class WalletEngine:
 
     def record_transfer(
         self,
-        inp_amt: str,
         source_acc_id: str,
+        inp_amt: str,
         target_acc_id: str,
-        transaction_date: date
+        inp_date: str
     ):
-        source_acc = self.get_account(source_acc_id)
+        if source_acc_id not in self.data["accounts"]:
+            raise EntityNotFoundError()
         source_acc_bal = self.get_acc_bal(source_acc_id)
 
         int_amt = convert_to_kobo(inp_amt)
@@ -260,16 +260,30 @@ class WalletEngine:
         if int_amt > source_acc_bal:
             raise InsufficientFundsError()
         
-        target_acc = self.get_account(target_acc_id)
-        
+        if target_acc_id not in self.data["accounts"]:
+            raise EntityNotFoundError()
+        valid_date = get_valid_date(inp_date)
+
         try:
             trx = Transaction(
                 id=self.generate_id(self.TRX_ID_PREFIX),
-                amount=amount,
+                amount=int_amt,
                 source_acc_id=source_acc_id,
                 target_acc_id=target_acc_id,
-                transaction_date=transaction_date,
+                transaction_date=valid_date,
                 transaction_type=TrxType.TRANSFER.value
             )
         except WalletError as err:
             raise
+        
+        # Prepare an isolated proposed application state.
+        proposed_data = deepcopy(self.data)
+
+        proposed_data["transactions"].append(trx)
+        proposed_data["accounts"][source_acc_id].debit(int_amt)
+        proposed_data["accounts"][target_acc_id].credit(int_amt)
+
+        # Persist before committing the new in-memory state.
+        # self.storage.save(proposed_data)
+
+        self.data = proposed_data

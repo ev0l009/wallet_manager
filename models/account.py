@@ -11,7 +11,8 @@ from exceptions.errors import (
     InvalidAccountNameError,
     InvalidAccountTypeError,
     InvalidAmountError,
-    BusinessRuleError
+    BusinessRuleError,
+    InactiveAccountError
 )
 
 from models.enums import (
@@ -98,6 +99,25 @@ class Account:
         self._acc_status = value
 
     # --- BUSINESS CORE METHODS ---
+
+    def credit(self, amt: int) -> None:
+        """Increments account assets by a specified quantity.
+
+        Raises:
+            AccStatusError: If the underlying account status is currently inactive.
+        """
+        if self.acc_status == AccStat.INACTIVE.value:
+            raise InactiveAccountError("Transaction rejected: Cannot credit an inactive account.")
+        self.balance += amt
+
+    def debit(self, amt: int) -> None:
+        """Decrements account assets by a specified quantity.
+
+        Raises:
+            AccStatusError: If the account is inactive.
+        """
+        if self.acc_status == AccStat.INACTIVE.value:
+            raise InactiveAccountError("Transaction rejected: Cannot debit an inactive account.")
 
     
     # def deactivate_account(self) -> bool:

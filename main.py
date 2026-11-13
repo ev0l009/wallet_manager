@@ -11,7 +11,10 @@ import sys
 from models.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
 from ui.menus import get_main_menu_state
-from ui.views import display_active_accounts
+from ui.views import (
+    display_active_accounts,
+    select_acc
+)
 
 from utils.logger import configure_logger
 
@@ -56,7 +59,8 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
-            wallet.acc_dashboard()
+            acc_map = wallet.get_acc_map()
+            selected_acc = select_acc(acc_map)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:

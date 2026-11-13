@@ -184,3 +184,10 @@ class WalletEngine:
             for account in self.data["accounts"].values()
             if account.acc_status == "INACTIVE"
         ]
+
+    def get_acc_map(self) -> dict [str, str]:
+
+        return {
+            acc.id: acc.acc_name
+            for acc in self.data["accounts"].values()
+        }

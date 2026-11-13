@@ -29,3 +29,51 @@ def display_active_accounts(active_accounts: list[ Account ]) -> None:
             print(f"  {name_trunc:<16} {acc.id:<12} {type_str:<12} {balance_str:>12}")
             
         print("  " + "—" * 58 + "\n")
+
+
+
+def select_acc(
+    acc_map: dict[str, str],
+    id_to_skip: str | None = None,
+    heading: str | None = None,
+) -> str | None:
+    """Renders a dynamically numbered list of accounts for user selection.
+
+    Args:
+        acc_map: Mapping containing structural database account IDs to names.
+        id_to_skip: Optional ID constraint to omit from selection views.
+        heading: Custom optional title overlay text for the selection layout.
+
+    Returns:
+        str: The unique account identity identifier string.
+
+    Raises:
+        NullEligibleAccountsError: If no valid accounts exist after filtering.
+        InvalidOptionError: If user selections do not match active runtime keys.
+    """
+    options: dict[str, str] = {}
+    title_text = heading.upper() if heading else "SELECT ACCOUNT"
+
+    print(f"\n  {title_text}")
+    print("  " + "—" * 25)
+
+    idx = 1
+    for acc_id, acc_name in acc_map.items():
+        if acc_id == id_to_skip:
+            continue
+        print(f"  {idx}. {acc_name.title()}")
+        options[str(idx)] = acc_id
+        idx += 1
+
+    if not options:
+        print("No eligible accounts available.")
+        return
+
+    print()
+    choice = input(f"  Select option (1-{len(options)}) → ").strip()
+
+    if choice not in options:
+        print("Invalid account selection. Selection canceled.")
+        return
+
+    return options[choice]

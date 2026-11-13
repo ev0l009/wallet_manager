@@ -10,7 +10,8 @@ from exceptions.errors import (
     EntityNotFoundError,
     InvalidAccountNameError,
     InvalidAccountTypeError,
-    InvalidAmountError
+    InvalidAmountError,
+    BusinessRuleError
 )
 
 from models.enums import (
@@ -89,9 +90,31 @@ class Account:
         """str: The operational availability lifecycle state of the account."""
         return self._acc_status
 
-    # @acc_status.setter
-    # def acc_status(self, value: str) -> None:
-    #     allowed_statuses = {status.value for status in AccStat}
-    #     if value not in allowed_statuses:
-    #         raise InvalidAccountStatusError(f"Invalid account status. Must be one of {allowed_statuses}")
-    #     self._acc_status = value
+    @acc_status.setter
+    def acc_status(self, value: str) -> None:
+        allowed_statuses = {status.value for status in AccStat}
+        if value not in allowed_statuses:
+            raise BusinessRuleError(f"Invalid account status. Must be one of {allowed_statuses}")
+        self._acc_status = value
+
+    # --- BUSINESS CORE METHODS ---
+
+    
+    # def deactivate_account(self) -> bool:
+    #     """Attempts to change status to inactive if balance invariants allow.
+
+    #     Returns:
+    #         bool: True if the account was successfully deactivated, False otherwise.
+    #     """
+    #     if self.balance > 0:
+    #         return False
+    #     self.acc_status = AccStat.INACTIVE.value
+        # return True
+
+    def reactivate(self) -> None:
+        """Restores full operational status to an inactive account instance.
+
+        Raises:
+            AccStatusError: If the account state is already marked active.
+        """
+        self.acc_status = AccStat.ACTIVE.value

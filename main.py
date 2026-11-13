@@ -21,6 +21,11 @@ from ui.views import (
     display_reports
 )
 
+from utils.validators import (
+    convert_to_kobo,
+    get_valid_date
+)
+
 from utils.logger import configure_logger
 
 # Initialize the application-wide logger.
@@ -80,10 +85,7 @@ def wallet_runner() -> None:
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
-            acc_map = wallet.get_inactive_acc_map()
-            source_acc_id = select_acc(acc_map)
-            target_acc_id = select_acc( acc_map=acc_map, id_to_skip=source_acc_id)
-            if source_acc_id and target_acc_id:
+            try:
                 wallet.record_transfer()
             current_state = MenuState.DASHBOARD.value
 
@@ -107,14 +109,6 @@ def wallet_runner() -> None:
                 current_state
             )
             current_state = MenuState.DASHBOARD.value
-
-    # # Perform final application cleanup before termination.
-    # 2. Reconsider wallet.save().
-
-    #     Because your design uses atomic persistence after each successful operation, wallet.save() should not be necessary to commit financial transactions on exit.
-
-    #     If it merely performs final cleanup, that's fine. Otherwise, remove it to avoid unnecessary writes or accidentally persisting uncommitted state.
-    # wallet.save()
 
     print("\n  • Exiting Finance Tracker...")
 

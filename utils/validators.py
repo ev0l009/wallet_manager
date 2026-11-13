@@ -1,10 +1,35 @@
 from exceptions.errors import (
     InvalidAccountNameError,
     DuplicateAccountNameError,
-    InvalidDateError
+    InvalidDateError,
+    InvalidAmountError
 )
 
 from datetime import datetime, date
+
+import re
+from decimal import Decimal, InvalidOperation
+
+def convert_to_kobo(user_input: str) -> int:
+    value = user_input.strip()
+
+    if not re.fullmatch(r"\d+(?:\.\d{1,2})?", value):
+        raise InvalidAmountError()
+
+    try:
+        amount = Decimal(value)
+
+        if not amount.is_finite() or amount <= 0:
+            raise InvalidAmountError()
+
+        if amount > Decimal("99999999.99"):
+            raise InvalidAmountError()
+
+        return int(amount * 100)
+
+    except InvalidOperation:
+        raise InvalidAmountError()
+    
 
 def get_valid_acc_name(existing_names: dict[str, str]) -> str:
     """Collect and validate a new account name.

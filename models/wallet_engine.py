@@ -14,20 +14,28 @@ from copy import deepcopy
 from typing import Final
 
 from models.account import Account
+from models.transaction import Transaction
 from models.types import WalletEngineData
 from models.enums import (
     TrxType,
     AccStat
 )
 
+from datetime import date
+
 # from file_manager.storage import Storage
 
-from utils.validators import get_valid_acc_name
+from utils.validators import (
+    get_valid_acc_name,
+    convert_to_kobo
+)
 
 from ui.menus import get_acc_type
 
 from exceptions.errors import (
-    EntityNotFoundError
+    EntityNotFoundError, 
+    WalletError,
+    InsufficientFundsError
 )
 
 class WalletEngine:
@@ -237,5 +245,31 @@ class WalletEngine:
             if (trx.transaction_type != TrxType.REVERSAL.value)
         ]
 
-    def record_transfer(self):
-        pass
+    def record_transfer(
+        self,
+        inp_amt: str,
+        source_acc_id: str,
+        target_acc_id: str,
+        transaction_date: date
+    ):
+        source_acc = self.get_account(source_acc_id)
+        source_acc_bal = self.get_acc_bal(source_acc_id)
+
+        int_amt = convert_to_kobo(inp_amt)
+
+        if int_amt > source_acc_bal:
+            raise InsufficientFundsError()
+        
+        target_acc = self.get_account(target_acc_id)
+        
+        try:
+            trx = Transaction(
+                id=self.generate_id(self.TRX_ID_PREFIX),
+                amount=amount,
+                source_acc_id=source_acc_id,
+                target_acc_id=target_acc_id,
+                transaction_date=transaction_date,
+                transaction_type=TrxType.TRANSFER.value
+            )
+        except WalletError as err:
+            raise

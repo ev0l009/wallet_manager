@@ -29,7 +29,7 @@ class Transaction:
     id: str
     amount: int
     transaction_date: date
-    transaction_type: str = field(init=False)
+    transaction_type: str
     category: str
     desc: str
     source_acc_id: str

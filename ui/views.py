@@ -40,6 +40,7 @@ def display_acc_bal(acc_bal: int):
     print(f"  Available Funds:  ${acc_bal:,.2f}")
     print("  " + "—" * 25 + "\n")
 
+
 def display_transactions(transactions: list[ Transaction ]) -> None:
         """Renders a structured grid report of historical transaction records."""
         if not transactions:
@@ -66,3 +67,43 @@ def display_transactions(transactions: list[ Transaction ]) -> None:
             print(f"  {trx_id:<13} {trx_type:<11} {amt_str:>16}")
 
         print("  " + "—" * 45 + "\n")
+
+
+def display_reports(transactions: list[ Transaction ]) -> None:
+    """Generates comprehensive aggregated summaries of global accounting metrics."""
+    total_income = sum([
+        t.amount for t in  transactions
+        if t.transaction_type == TrxType.DEPOSIT.value
+    ])
+
+    total_expense = sum([
+        t.amount for t in  transactions
+        if t.transaction_type == TrxType.WITHDRAW.value
+    ])
+
+    net_balance = total_income - total_expense
+
+    expense_category: dict[str, int] = {}
+    
+    for trx in transactions:
+        if trx.transaction_type == TrxType.WITHDRAW.value:
+            cat = trx.category.title() # type: ignore
+            expense_category[cat] = expense_category.get(cat, 0) + trx.amount # type: ignore
+
+        print("\n  FINANCIAL REPORT OVERVIEW")
+        print("  " + "—" * 35)
+        print(f"  Net Total Balance:  ${net_balance:,.2f}")
+        print(f"  Total Income (+):   ${total_income:,.2f}")
+        print(f"  Total Expenses (-): ${total_expense:,.2f}")
+        print("  " + "—" * 35)
+
+        print("\n  EXPENSES BY CATEGORY")
+        print("  " + "—" * 35)
+        
+        if not expense_category:
+            print("  (No expense transactions logged yet)")
+        else:
+            for cat, amt in expense_category.items():
+                print(f"  {cat:<18} ${amt:>12,.2f}")
+                
+        print("  " + "—" * 35 + "\n")

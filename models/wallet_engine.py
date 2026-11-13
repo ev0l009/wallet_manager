@@ -234,5 +234,5 @@ class WalletEngine:
         return [
             trx
             for trx in self.data["transactions"]
-            if trx.transaction_type != TrxType.REVERSAL.value
+            if (trx.transaction_type != TrxType.REVERSAL.value)
         ]

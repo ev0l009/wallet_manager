@@ -229,3 +229,10 @@ class WalletEngine:
 
     def reactivate_acc(self, acc_id: str):
         self.data["accounts"][acc_id].reactivate()
+
+    def get_transactions(self):
+        return [
+            trx
+            for trx in self.data["transactions"]
+            if trx.transaction_type != TrxType.REVERSAL.value
+        ]

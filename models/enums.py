@@ -30,6 +30,7 @@ class TrxType(Enum):
     TRANSFER = "transfer"
     WITHDRAW = "withdraw"
     DEPOSIT = "deposit"
+    REVERSAL = "reversal"
 
 class ExpCatOpts(Enum):
     """Valid expense categories"""

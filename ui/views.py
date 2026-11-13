@@ -36,3 +36,30 @@ def display_acc_bal(acc_bal: int):
     print("  " + "—" * 25)
     print(f"  Available Funds:  ${acc_bal:,.2f}")
     print("  " + "—" * 25 + "\n")
+
+def display_transactions(transactions: list[]) -> None:
+        """Renders a structured grid report of historical transaction records."""
+        if not transactions:
+            print("\n  [!] No transactions found in this ledger.\n")
+            return
+
+        print("\n  TRANSACTION HISTORY")
+        print("  " + "—" * 45)
+        print(f"  {'ID':<13} {'Type':<11} {'Amount':>16}")
+        print("  " + "—" * 45)
+
+        for trx in transactions:
+            trx_id = trx.id
+            trx_type = trx.transaction_type.capitalize()
+            
+            # Explicit directional labeling based on specific financial context types
+            if trx.transaction_type == TrxType.DEPOSIT.value:
+                amt_str = f"+${trx.amount:,.2f}"
+            elif trx.transaction_type == TrxType.TRANSFER.value:
+                amt_str = f"⇄ ${trx.amount:,.2f}"
+            else:
+                amt_str = f"-${trx.amount:,.2f}"
+
+            print(f"  {trx_id:<13} {trx_type:<11} {amt_str:>16}")
+
+        print("  " + "—" * 45 + "\n")

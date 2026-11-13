@@ -118,3 +118,5 @@ class Account:
             AccStatusError: If the account state is already marked active.
         """
         self.acc_status = AccStat.ACTIVE.value
+
+    

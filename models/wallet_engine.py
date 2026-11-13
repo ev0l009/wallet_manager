@@ -236,3 +236,6 @@ class WalletEngine:
             for trx in self.data["transactions"]
             if (trx.transaction_type != TrxType.REVERSAL.value)
         ]
+
+    def record_transfer(self):
+        

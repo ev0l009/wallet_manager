@@ -84,7 +84,7 @@ def display_reports(transactions: list[ Transaction ]) -> None:
     net_balance = total_income - total_expense
 
     expense_category: dict[str, int] = {}
-    
+
     for trx in transactions:
         if trx.transaction_type == TrxType.WITHDRAW.value:
             cat = trx.category.title() # type: ignore
@@ -107,3 +107,71 @@ def display_reports(transactions: list[ Transaction ]) -> None:
                 print(f"  {cat:<18} ${amt:>12,.2f}")
                 
         print("  " + "—" * 35 + "\n")
+
+
+def transfer(acc_map: dic):
+        """Coordinates a secure fund transfer workflow between two active accounts."""
+        print("\n  FUND TRANSFER")
+        print("  " + "—" * 20)
+
+        if len(active_acc_map) < 2:
+            print("  [!] Action unavailable: At least 2 active accounts are required to transfer funds.\n")
+            return
+
+        try:
+            sender_acc_id = select_acc(
+                acc_map=active_acc_map,
+                heading="Source Account"
+            )
+        except (InvalidOptionError, NullEligibleAccountsError) as err:
+            print(f"\n  [!] Selection canceled: {err}")
+            return
+
+        sender_acc = self.data["accounts"][sender_acc_id]
+
+        raw_amount = input("  Enter transfer amount → ").strip()
+        try:
+            transfer_amt = validate_amount(raw_amount)
+        except InvalidAmountError as err:
+            print(f"\n  [!] Validation Error: {err}")
+            return
+
+        if transfer_amt <= 0:
+            print("\n  [!] Transaction canceled: Transfer amount must be greater than $0.00.\n")
+            return
+
+        if transfer_amt > sender_acc.balance:
+            print("\n  [!] Error: Insufficient available funds for this transfer request.\n")
+            return
+
+        try:
+            receiver_acc_id = select_acc(
+                acc_map=active_acc_map,
+                id_to_skip=sender_acc_id,
+                heading="Target Account"
+            )
+        except (InvalidOptionError, NullEligibleAccountsError) as err:
+            print(f"\n  [!] Selection canceled: {err}")
+            return
+
+        receiver_acc = self.data["accounts"][receiver_acc_id]
+
+        try:
+            # Enforce safety policies by leveraging our core model method behaviors
+            sender_acc.debit(transfer_amt)
+            receiver_acc.credit(transfer_amt)
+        except (PermissionError, ValueError) as domain_err:
+            print(f"\n  [!] Ledger Processing Error: {domain_err}\n")
+            return
+
+        # Generate transaction ledger items after balances are verified
+        trx_id = self.generate_id("trx", self.TRX)
+        transfer_record = TransferTrx(
+            id=trx_id,
+            amount=transfer_amt,
+            source_acc_id=sender_acc_id,
+            target_acc_id=receiver_acc_id
+        )
+        
+        self.data["transactions"].append(transfer_record)
+        print("\n  [✓] Transfer completed successfully.\n")

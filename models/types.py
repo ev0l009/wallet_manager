@@ -17,3 +17,9 @@ class TrxDict(TypedDict):
     id: str
     amount: int
     transaction_date: date
+    transaction_type: str
+    category: str
+    desc: str
+    source_acc_id: str
+    target_acc_id: str
+    reverses_transaction_id: str

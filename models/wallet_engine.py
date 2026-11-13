@@ -202,7 +202,7 @@ class WalletEngine:
             for trx in self.data["transactions"]
             if (
                 trx.transaction_type == TrxType.DEPOSIT.value and
-                trx.account_id == acc_id    # type: ignore
+                trx.target_acc_id == acc_id
             ) 
         ])
 
@@ -211,7 +211,7 @@ class WalletEngine:
             for trx in self.data["transactions"]
             if (
                 trx.transaction_type == TrxType.WITHDRAW.value and
-                trx.account_id == acc_id    # type: ignore
+                trx.source_acc_id == acc_id
             ) 
         ])
 

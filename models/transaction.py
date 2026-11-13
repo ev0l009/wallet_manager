@@ -40,6 +40,7 @@ class Transaction:
     def __post_init__(self):
         if not self.id.strip():
             raise EntityNotFoundError("Transaction ID cannot be empty.")
+        
         if type(self.amount) is not int:
             raise InvalidAmountError("Amount must be a valid whole number integer.")
         if self.amount < 0:
@@ -71,4 +72,10 @@ class Transaction:
             "id": data["id"],
             "amount": data["amount"],
             "transaction_date": data.get("transaction_date"),
+            "transaction_type": data["transaction_type"],
+            "category": data["category"],
+            "desc": data["desc"],
+            "source_acc_id": data["source_acc_id"],
+            "target_acc_id": data["source_acc_id"],
+            "reverses_transaction_id": data["reverses_transaction_id"]
         }

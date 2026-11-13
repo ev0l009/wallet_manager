@@ -61,7 +61,8 @@ def wallet_runner() -> None:
         elif current_state == MenuState.ACC_DASHBOARD.value:
             acc_map = wallet.get_acc_map()
             selected_acc = select_acc(acc_map)
-            
+            if selected_acc:
+                acc_bal = wallet.get_acc_bal(selected_acc)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:

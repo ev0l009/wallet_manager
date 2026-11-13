@@ -79,4 +79,8 @@ def select_acc(
     return options[choice]
 
 
-def display_balance()
+def display_acc_bal(acc_bal: int):
+    print("\n  CURRENT BALANCE")
+    print("  " + "—" * 25)
+    print(f"  Available Funds:  ${acc_bal:,.2f}")
+    print("  " + "—" * 25 + "\n")

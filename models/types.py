@@ -5,11 +5,11 @@ from datetime import date
 
 if TYPE_CHECKING:
     from models.account import Account
-    from models.transaction import Transaction
+    from models.transaction import Transaction, TransferTrx, DepositTrx, WithdrawalTrx
 
 class WalletEngineData(TypedDict):
     accounts: dict [str, Account ]
-    transactions: list [ Transaction ]
+    transactions: list [ Transaction | TransferTrx | DepositTrx | WithdrawalTrx ]
 
 class TrxDict(TypedDict):
     """Base serialization schema for all application transactions."""

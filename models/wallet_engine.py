@@ -19,8 +19,6 @@ from models.enums import (
     TrxType
 )
 
-from ui.menus import get_acc_dash_state
-
 # from file_manager.storage import Storage
 
 from utils.validators import get_valid_acc_name
@@ -202,13 +200,19 @@ class WalletEngine:
         acc_income = sum([
             trx.amount
             for trx in self.data["transactions"]
-            if trx.transaction_type == TrxType.DEPOSIT.value
+            if (
+                trx.transaction_type == TrxType.DEPOSIT.value and
+                trx.account_id == acc_id    # type: ignore
+            ) 
         ])
 
         acc_expense = sum([
             trx.amount
             for trx in self.data["transactions"]
-            if trx.transaction_type == TrxType.WITHDRAW.value
+            if (
+                trx.transaction_type == TrxType.WITHDRAW.value and
+                trx.account_id == acc_id    # type: ignore
+            ) 
         ])
 
         return acc_income - acc_expense

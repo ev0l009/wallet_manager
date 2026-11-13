@@ -11,6 +11,7 @@ import sys
 from models.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
 from ui.menus import get_main_menu_state
+from ui.views import display_active_accounts
 
 from utils.logger import configure_logger
 
@@ -50,7 +51,8 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.LIST_ACCOUNTS.value:
-            wallet.list_accounts()
+            active_accounts = wallet.get_active_accounts()
+            display_active_accounts(active_accounts)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:

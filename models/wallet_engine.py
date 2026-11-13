@@ -228,4 +228,4 @@ class WalletEngine:
         return acc_income - acc_expense
 
     def reactivate_acc(self, acc_id: str):
-        self.data["accounts"][acc_id].
+        self.data["accounts"][acc_id].reactivate()

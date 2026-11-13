@@ -10,10 +10,12 @@ import sys
 
 from models.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
-from ui.menus import get_main_menu_state
+from ui.menus import (
+    get_main_menu_state,
+    select_acc
+)
 from ui.views import (
     display_active_accounts,
-    select_acc,
     display_acc_bal
 )
 

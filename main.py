@@ -16,7 +16,8 @@ from ui.menus import (
 )
 from ui.views import (
     display_active_accounts,
-    display_acc_bal
+    display_acc_bal,
+    display_transactions
 )
 
 from utils.logger import configure_logger
@@ -82,7 +83,9 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:
-            wallet.list_transactions()
+            transactions = wallet.get_transactions()
+            if transactions:
+                display_transactions(transactions)
             current_state = MenuState.DASHBOARD.value
 
         # Financial reporting operations.

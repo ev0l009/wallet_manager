@@ -1,8 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from models.enums import TrxType
+
 if TYPE_CHECKING:
      from models.account import Account
+     from models.transaction import Transaction
 
 def display_active_accounts(active_accounts: list[ Account ]) -> None:
         """Renders a formatted text grid table displaying active accounts in memory."""
@@ -37,7 +40,7 @@ def display_acc_bal(acc_bal: int):
     print(f"  Available Funds:  ${acc_bal:,.2f}")
     print("  " + "—" * 25 + "\n")
 
-def display_transactions(transactions: list[]) -> None:
+def display_transactions(transactions: list[ Transaction ]) -> None:
         """Renders a structured grid report of historical transaction records."""
         if not transactions:
             print("\n  [!] No transactions found in this ledger.\n")

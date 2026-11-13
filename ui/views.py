@@ -77,3 +77,6 @@ def select_acc(
         return
 
     return options[choice]
+
+
+def display_balance()

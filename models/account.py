@@ -13,7 +13,7 @@ from exceptions.errors import (
     InvalidAmountError
 )
 
-from models.types import (
+from models.enums import (
     AccType,
     AccStat
 )

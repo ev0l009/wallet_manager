@@ -216,3 +216,5 @@ class WalletEngine:
         ])
 
         return acc_income - acc_expense
+
+    # def record_expense(self):

@@ -1,5 +1,8 @@
 from ui.menu_states import MenuState
-from models.enums import AccType
+from models.enums import (
+    AccType,
+    AccDashState
+)
 from exceptions.errors import InvalidAccountTypeError
 
 def get_main_menu_state() -> str:
@@ -69,5 +72,39 @@ def get_acc_type() -> str:
         raise InvalidAccountTypeError(
             "Invalid selection. Choose an option between 1 and 4."
         )
+
+    return options[choice]
+
+
+def get_acc_dash_state(acc_name: str) -> str:
+    """Displays the individual account inspection actions sub-menu.
+
+    Args:
+        acc_name: The descriptive string name of the account under inspection.
+
+    Returns:
+        str: The string value mapping to the next target AccDashState.
+    """
+    options = {
+        "1": AccDashState.BALANCE.value,
+        "2": AccDashState.DEPOSIT.value,
+        "3": AccDashState.WITHRAWAL.value,
+        "4": AccDashState.DEACTIVATE.value,
+        "5": AccDashState.RETURN.value,
+    }
+
+    print(f"\n  ACCOUNT: {acc_name.upper()}")
+    print("  " + "—" * 20)
+    print("  1. Check Balance")
+    print("  2. Deposit")
+    print("  3. Withdraw")
+    print("  4. Deactivate Account")
+    print("  5. Main Menu\n")
+
+    choice = input("  Select option (1-5) → ").strip()
+
+    if choice not in options:
+        print("\n  [!] Invalid choice. Please try again.")
+        return AccDashState.ACC_DASH.value
 
     return options[choice]

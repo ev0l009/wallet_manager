@@ -19,7 +19,7 @@ from models.enums import (
     AccDashState
 )
 
-from ui.menus import 
+from ui.menus import get_acc_dash_state
 
 # from file_manager.storage import Storage
 

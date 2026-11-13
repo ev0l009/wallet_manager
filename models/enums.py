@@ -23,3 +23,10 @@ class AccStat(Enum):
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+
+class TrxType(Enum):
+    """Financial tracking action classifications."""
+
+    TRANSFER = "transfer"
+    WITHDRAW = "withdraw"
+    DEPOSIT = "deposit"

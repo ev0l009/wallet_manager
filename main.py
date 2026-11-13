@@ -1,5 +1,5 @@
 """Main entry point for the Finance Tracker application.
-
+ 
 This module manages the application lifecycle, menu state transitions, and user interface routing through a simplified state-based architecture.
 
 It initializes the wallet engine, loads persisted application data, dispatches user-selected operations, and handles application termination.

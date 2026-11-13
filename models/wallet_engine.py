@@ -16,7 +16,7 @@ from typing import Final
 from models.account import Account
 from models.types import WalletEngineData
 from models.enums import (
-    AccDashState
+    TrxType
 )
 
 from ui.menus import get_acc_dash_state
@@ -198,92 +198,13 @@ class WalletEngine:
             for acc in self.data["accounts"].values()
         }
     
-    def acc_dashboard(self, acc_id: str) -> None:
-        """Manages individual account operations via an interactive navigation loop."""
+    def get_acc_bal(self, acc_id: str) -> int:
+        acc_income = sum([
+            trx.amount
+            for trx in self.data["transactions"]
+            if trx.transaction_type == TrxType.DEPOSIT.value
+        ])
 
-        acc = self.get_account(acc_id)
-        state = AccDashState.ACC_DASH.value
-
-        while state != AccDashState.RETURN.value:
-            if state == AccDashState.ACC_DASH.value:
-                state = get_acc_dash_state(acc.acc_name)
-
-            elif state == AccDashState.BALANCE.value:
-                acc_bal = acc.balance
-                print("\n  CURRENT BALANCE")
-                print("  " + "—" * 25)
-                print(f"  Available Funds:  ${acc_bal:,.2f}")
-                print("  " + "—" * 25 + "\n")
-                state = AccDashState.ACC_DASH.value
-
-            elif state == AccDashState.DEPOSIT.value:
-                print("\n  ACCOUNT DEPOSIT")
-                raw_amt = input("  Enter deposit amount → ").strip()
-                try:
-                    deposit_amt = validate_amount(raw_amt)
-                    if deposit_amt <= 0:
-                        print("\n  [!] Error: Deposit amount must be greater than $0.00.")
-                    else:
-                        acc.credit(deposit_amt)
-                        trx_id = self.generate_id("trx", self.TRX)
-                        deposit_record = DepositTrx(
-                            id=trx_id,
-                            acc_id=acc_id,
-                            amount=deposit_amt
-                        )
-                        
-                        self.data["transactions"].append(deposit_record)
-                        print(f"\n  [✓] Deposit successful. New Balance: ${acc.balance:,.2f}")
-                except (InvalidAmountError, PermissionError) as err:
-                    print(f"\n  [!] Transaction failed: {err}")
-                
-                state = AccDashState.ACC_DASH.value
-
-            elif state == AccDashState.WITHRAWAL.value:
-                print("\n  ACCOUNT WITHDRAWAL")
-                raw_amt = input("  Enter withdrawal amount → ").strip()
-                try: 
-                    expense_amt = validate_amount(raw_amt)
-                    if expense_amt <= 0:
-                        print("\n  [!] Error: Withdrawal amount must be greater than $0.00.")
-                    elif expense_amt > acc.balance:
-                        print("\n  [!] Error: Insufficient available funds.")
-                    else:
-                        from ui import get_category  # Local inline import to avoid circular ties
-                        category = get_category()
-                        
-                        acc.debit(expense_amt)
-                        trx_id = self.generate_id("trx", self.TRX)
-                        withdrawal_record = WithdrawalTrx(
-                            id=trx_id,
-                            category=category,
-                            acc_id=acc_id,
-                            amount=expense_amt
-                        )
-                        
-                        self.data["transactions"].append(withdrawal_record)
-                        print(f"\n  [✓] Withdrawal successful. New Balance: ${acc.balance:,.2f}")
-                except (InvalidAmountError, PermissionError, InvalidOptionError) as err:
-                    print(f"\n  [!] Transaction failed: {err}")
-                
-                state = AccDashState.ACC_DASH.value
-
-            elif state == AccDashState.DEACTIVATE.value:
-                print("\n  ACCOUNT DEACTIVATION")
-                print("  " + "—" * 35)
-                print("  ⚠️  Notice: Deactivating this account locks all features")
-                print("      until it is reactivated.")
-                print("  1. Proceed with Deactivation")
-                print("  2. Cancel and Return\n")
-                
-                choice = input("  Select option (1-2) → ").strip()
-                if choice == "1":
-                    success = acc.deactivate_account()
-                    if success:
-                        print("\n  [✓] Account deactivated successfully.\n")
-                        state = AccDashState.RETURN.value
-                    else:
-                        print("\n  [!] Error: Account must be empty ($0.00) before deactivation.\n")
-                        state = AccDashState.ACC_DASH.value
-                else:
-                    state = AccDashState.ACC_DASH.value
+        acc_expense = sum([
+            trx
+        ])

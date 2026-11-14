@@ -12,7 +12,8 @@ from models.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
 from ui.menus import (
     get_main_menu_state,
-    select_acc
+    select_acc,
+    get_acc_dash_state
 )
 from ui.views import (
     display_active_accounts,
@@ -20,6 +21,9 @@ from ui.views import (
     display_transactions,
     display_reports
 )
+
+from ui.menu_states import AccDashState
+
 
 from exceptions.errors import WalletError
 
@@ -67,10 +71,29 @@ def wallet_runner() -> None:
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
             acc_map = wallet.get_active_acc_map()
-            selected_acc = select_acc(acc_map)
-            if selected_acc:
-                acc_bal = wallet.get_acc_bal(selected_acc)
-                display_acc_bal(acc_bal)
+            selected_acc_id = select_acc(acc_map)
+            if selected_acc_id:
+                acc = wallet.get_account(selected_acc_id)
+                acc_dash_state = AccDashState.ACC_DASH.value
+                while True:
+                    if acc_dash_state == AccDashState.ACC_DASH.value:
+                        acc_dash_state = get_acc_dash_state(acc.acc_name)
+                    elif acc_dash_state == AccDashState.BALANCE.value:
+                        acc_bal = wallet.get_acc_bal(acc.id)
+                        display_acc_bal(acc_bal)
+                    elif acc_dash_state == AccDashState.DEPOSIT.value:
+                        raw_amt = input("Enter amount: ").strip()
+                        raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+                        desc = input("Enter a short description: ").strip()
+                        try:
+                            wallet.record_income(
+                                acc_id=acc.id,
+                                amount=raw_amt,
+                                desc=desc,
+                                inp_date=raw_date
+                            )
+                        except WalletError as err:
+                            print(err)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:
@@ -87,21 +110,15 @@ def wallet_runner() -> None:
             raw_amt = input("Enter amount: ").strip()
             target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
             raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-            if (
-                source_acc_id and 
-                target_acc_id and 
-                raw_amt and 
-                raw_date
-            ):
-                try:
-                    wallet.record_transfer(
-                        source_acc_id=source_acc_id,
-                        target_acc_id=target_acc_id,
-                        inp_amt=raw_amt,
-                        inp_date=raw_date
-                    )
-                except WalletError as err:
-                    print(err)
+            try:
+                wallet.record_transfer(
+                    source_acc_id=source_acc_id,
+                    target_acc_id=target_acc_id,
+                    inp_amt=raw_amt,
+                    inp_date=raw_date
+                )
+            except WalletError as err:
+                print(err)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

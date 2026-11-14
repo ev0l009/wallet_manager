@@ -21,8 +21,6 @@ from models.enums import (
     AccStat
 )
 
-from ui.menu_states import AccDashState
-
 # from file_manager.storage import Storage
 
 from utils.validators import (
@@ -289,3 +287,27 @@ class WalletEngine:
         # self.storage.save(proposed_data)
 
         self.data = proposed_data
+
+    def record_income(
+        self,
+        acc_id: str,
+        amount: str,
+        desc: str,
+        inp_date: str
+    ):
+        if acc_id not in self.data["accounts"]:
+            raise EntityNotFoundError()
+
+        int_amt = convert_to_kobo(amount)
+
+        valid_date = get_valid_date(inp_date)
+
+        try:
+            trx = Transaction(
+                id=self.generate_id(self.TRX_ID_PREFIX),
+                amount=int_amt,
+                target_acc_id=acc_id,
+                desc=desc,
+                transaction_date=valid_date,
+                transaction_type=TrxType.DEPOSIT.value
+            )

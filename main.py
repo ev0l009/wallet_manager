@@ -51,6 +51,7 @@ def wallet_runner() -> None:
     # Initialize the wallet engine and load persisted application data.
     wallet = WalletEngine()
     # wallet.load()
+    acc_map = wallet.get_active_acc_map()
 
     # Start the application at the main dashboard.
     current_state = MenuState.DASHBOARD.value
@@ -64,8 +65,9 @@ def wallet_runner() -> None:
 
         # Account management operations.
         elif current_state == MenuState.CREATE_ACCOUNT.value:
-            acc_map = wallet.get_active_acc_map()
-            acc_name = get_valid_acc_name(acc_map)
+            
+            raw_name = input("  Enter account name → ")
+            acc_name = get_valid_acc_name(raw_name, acc_map)
             acc_type = get_acc_type()
             wallet.create_account(acc_name,acc_type)
             current_state = MenuState.DASHBOARD.value
@@ -77,7 +79,7 @@ def wallet_runner() -> None:
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
-            acc_map = wallet.get_active_acc_map()
+            
             source_acc_id = select_acc(acc_map)
             raw_amt = input("Enter amount: ").strip()
             target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
@@ -94,7 +96,7 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
-            acc_map = wallet.get_active_acc_map()
+            
             selected_acc_id = select_acc(acc_map)
             if selected_acc_id:
                 acc = wallet.get_account(selected_acc_id)
@@ -139,7 +141,7 @@ def wallet_runner() -> None:
                         acc_dash_state = AccDashState.ACC_DASH.value
 
                     elif acc_dash_state == AccDashState.DEACTIVATE.value:
-                        acc_map = wallet.get_active_acc_map()
+                        
                         acc_id = select_acc(acc_map)
                         try:
                             wallet.deactivate_acc(acc_id)

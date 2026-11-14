@@ -31,7 +31,7 @@ def convert_to_kobo(user_input: str) -> int:
         raise InvalidAmountError()
     
 
-def get_valid_acc_name(existing_names: dict[str, str]) -> str:
+def get_valid_acc_name(raw_name: str, existing_names: dict[str, str]) -> str:
     """Collect and validate a new account name.
 
     Args:
@@ -45,7 +45,6 @@ def get_valid_acc_name(existing_names: dict[str, str]) -> str:
         DuplicateAccountNameError: If the name already exists.
     """
 
-    raw_name = input("  Enter account name → ")
     cleaned_name = raw_name.strip()
 
     if not cleaned_name:

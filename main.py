@@ -21,6 +21,8 @@ from ui.views import (
     display_reports
 )
 
+from exceptions.errors import WalletError
+
 from utils.logger import configure_logger
 
 # Initialize the application-wide logger.
@@ -91,12 +93,15 @@ def wallet_runner() -> None:
                 raw_amt and 
                 raw_date
             ):
-                wallet.record_transfer(
-                    source_acc_id=source_acc_id,
-                    target_acc_id=target_acc_id,
-                    inp_amt=raw_amt,
-                    inp_date=raw_date
-                )
+                try:
+                    wallet.record_transfer(
+                        source_acc_id=source_acc_id,
+                        target_acc_id=target_acc_id,
+                        inp_amt=raw_amt,
+                        inp_date=raw_date
+                    )
+                except WalletError as err:
+                    print(err)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

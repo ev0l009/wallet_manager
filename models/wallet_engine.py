@@ -21,6 +21,8 @@ from models.enums import (
     AccStat
 )
 
+from ui.menu_states import AccDashState
+
 # from file_manager.storage import Storage
 
 from utils.validators import (
@@ -287,3 +289,5 @@ class WalletEngine:
         # self.storage.save(proposed_data)
 
         self.data = proposed_data
+
+    

@@ -12,3 +12,13 @@ class MenuState(Enum):
     TRANSACTIONS = "transactions"
     REPORTS = "reports"
     REACTIVATE_ACC = "reactivate"
+
+class AccDashState(Enum):
+    """Navigation states for individual account inspection dashboards."""
+
+    ACC_DASH = "acc_dash"
+    BALANCE = "balance"
+    DEPOSIT = "deposit"
+    WITHRAWAL = "withdrawal"
+    DEACTIVATE = "deactivate"
+    RETURN = "return"

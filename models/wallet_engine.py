@@ -289,5 +289,3 @@ class WalletEngine:
         # self.storage.save(proposed_data)
 
         self.data = proposed_data
-
-    

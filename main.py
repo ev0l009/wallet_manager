@@ -70,6 +70,24 @@ def wallet_runner() -> None:
             display_active_accounts(active_accounts)
             current_state = MenuState.DASHBOARD.value
 
+        # Financial transaction operations.
+        elif current_state == MenuState.TRANSFER.value:
+            acc_map = wallet.get_active_acc_map()
+            source_acc_id = select_acc(acc_map)
+            raw_amt = input("Enter amount: ").strip()
+            target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
+            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+            try:
+                wallet.record_transfer(
+                    source_acc_id=source_acc_id,
+                    target_acc_id=target_acc_id,
+                    inp_amt=raw_amt,
+                    inp_date=raw_date
+                )
+            except WalletError as err:
+                print(err)
+            current_state = MenuState.DASHBOARD.value
+
         elif current_state == MenuState.ACC_DASHBOARD.value:
             acc_map = wallet.get_active_acc_map()
             selected_acc_id = select_acc(acc_map)
@@ -132,35 +150,17 @@ def wallet_runner() -> None:
 
             current_state = MenuState.DASHBOARD.value
 
+        elif current_state == MenuState.TRANSACTIONS.value:
+            transactions = wallet.get_transactions()
+            if transactions:
+                display_transactions(transactions)
+            current_state = MenuState.DASHBOARD.value
+
         elif current_state == MenuState.REACTIVATE_ACC.value:
             acc_map = wallet.get_inactive_acc_map()
             selected_acc = select_acc(acc_map)
             if selected_acc:
                 wallet.reactivate_acc(selected_acc)
-            current_state = MenuState.DASHBOARD.value
-
-        # Financial transaction operations.
-        elif current_state == MenuState.TRANSFER.value:
-            acc_map = wallet.get_active_acc_map()
-            source_acc_id = select_acc(acc_map)
-            raw_amt = input("Enter amount: ").strip()
-            target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
-            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-            try:
-                wallet.record_transfer(
-                    source_acc_id=source_acc_id,
-                    target_acc_id=target_acc_id,
-                    inp_amt=raw_amt,
-                    inp_date=raw_date
-                )
-            except WalletError as err:
-                print(err)
-            current_state = MenuState.DASHBOARD.value
-
-        elif current_state == MenuState.TRANSACTIONS.value:
-            transactions = wallet.get_transactions()
-            if transactions:
-                display_transactions(transactions)
             current_state = MenuState.DASHBOARD.value
 
         # Financial reporting operations.

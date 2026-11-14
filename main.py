@@ -21,11 +21,6 @@ from ui.views import (
     display_reports
 )
 
-from utils.validators import (
-    convert_to_kobo,
-    get_valid_date
-)
-
 from utils.logger import configure_logger
 
 # Initialize the application-wide logger.
@@ -85,8 +80,23 @@ def wallet_runner() -> None:
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
-            try:
-                wallet.record_transfer()
+            acc_map = wallet.get_active_acc_map()
+            source_acc_id = select_acc(acc_map)
+            raw_amt = input("Enter amount: ").strip()
+            target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
+            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+            if (
+                source_acc_id and 
+                target_acc_id and 
+                raw_amt and 
+                raw_date
+            ):
+                wallet.record_transfer(
+                    source_acc_id=source_acc_id,
+                    target_acc_id=target_acc_id,
+                    inp_amt=raw_amt,
+                    inp_date=raw_date
+                )
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

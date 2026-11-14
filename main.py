@@ -96,7 +96,8 @@ def wallet_runner() -> None:
                             )
                         except WalletError as err:
                             print(err)
-                            acc_dash_state = AccDashState.ACC_DASH.value
+                        acc_dash_state = AccDashState.ACC_DASH.value
+                        
                     elif acc_dash_state == AccDashState.WITHRAWAL.value:
                         raw_amt = input("Enter amount: ").strip()
                         exp_cat = get_exp_category()
@@ -106,10 +107,13 @@ def wallet_runner() -> None:
                             wallet.record_expense(
                                 acc_id=acc.id,
                                 amount=raw_amt,
-                                category=exp_cat,
+                                exp_cat=exp_cat,
                                 desc=desc,
                                 inp_date=raw_date
                             )
+                        except WalletError as err:
+                            print(err)
+                        acc_dash_state = AccDashState.ACC_DASH.value
 
             current_state = MenuState.DASHBOARD.value
 

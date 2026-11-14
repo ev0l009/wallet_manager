@@ -158,7 +158,7 @@ def select_acc(
     return options[choice]
 
 
-def get_exp_category() -> str | None:
+def get_exp_category() -> str:
     """Presents recognized expense categorization options for tracking.
 
     Returns:
@@ -187,6 +187,6 @@ def get_exp_category() -> str | None:
 
     if choice not in cat_options:
         print("Invalid category selection. Selection canceled.")
-        return
+        return "invalid_selection"
 
     return cat_options[choice]

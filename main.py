@@ -97,7 +97,7 @@ def wallet_runner() -> None:
                         except WalletError as err:
                             print(err)
                         acc_dash_state = AccDashState.ACC_DASH.value
-                        
+
                     elif acc_dash_state == AccDashState.WITHRAWAL.value:
                         raw_amt = input("Enter amount: ").strip()
                         exp_cat = get_exp_category()
@@ -115,6 +115,16 @@ def wallet_runner() -> None:
                             print(err)
                         acc_dash_state = AccDashState.ACC_DASH.value
 
+                    elif acc_dash_state == AccDashState.DEACTIVATE.value:
+                        acc_map = wallet.get_active_acc_map()
+                        acc_id = select_acc(acc_map)
+                        try:
+                            wallet.deactivate_acc(acc_id)
+                        except WalletError as err:
+                            print(err)
+                        acc_dash_state = AccDashState.RETURN.value
+                            
+
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:
@@ -131,16 +141,15 @@ def wallet_runner() -> None:
             raw_amt = input("Enter amount: ").strip()
             target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
             raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-            if source_acc_id and target_acc_id:
-                try:
-                    wallet.record_transfer(
-                        source_acc_id=source_acc_id,
-                        target_acc_id=target_acc_id,
-                        inp_amt=raw_amt,
-                        inp_date=raw_date
-                    )
-                except WalletError as err:
-                    print(err)
+            try:
+                wallet.record_transfer(
+                    source_acc_id=source_acc_id,
+                    target_acc_id=target_acc_id,
+                    inp_amt=raw_amt,
+                    inp_date=raw_date
+                )
+            except WalletError as err:
+                print(err)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

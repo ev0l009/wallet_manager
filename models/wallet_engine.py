@@ -34,7 +34,9 @@ from ui.menus import get_acc_type
 from exceptions.errors import (
     EntityNotFoundError, 
     WalletError,
-    InsufficientFundsError
+    InsufficientFundsError,
+    InactiveAccountError,
+    AccountBalanceNotZeroError
 )
 
 class WalletEngine:
@@ -353,6 +355,20 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
 
         proposed_data["transactions"].append(trx)
-        proposed_data["accounts"][acc_id].credit(int_amt)
+        proposed_data["accounts"][acc_id].debit(int_amt)
+
+        self.data = proposed_data
+
+    def deactivate_acc(self, acc_id: str):
+        active_accounts = self.get_active_acc_map()
+        if acc_id not in active_accounts:
+            raise InactiveAccountError()
+        acc_bal = self.get_acc_bal(acc_id)
+        if acc_bal > 0:
+            raise AccountBalanceNotZeroError()
+        
+        proposed_data = deepcopy(self.data)
+
+        proposed_data["accounts"][acc_id].deactivate()
 
         self.data = proposed_data

@@ -120,16 +120,13 @@ class Account:
             raise InactiveAccountError("Transaction rejected: Cannot debit an inactive account.")
 
     
-    # def deactivate_account(self) -> bool:
-    #     """Attempts to change status to inactive if balance invariants allow.
+    def deactivate(self):
+        """Attempts to change status to inactive if balance invariants allow.
 
-    #     Returns:
-    #         bool: True if the account was successfully deactivated, False otherwise.
-    #     """
-    #     if self.balance > 0:
-    #         return False
-    #     self.acc_status = AccStat.INACTIVE.value
-        # return True
+        Returns:
+            bool: True if the account was successfully deactivated, False otherwise.
+        """
+        self.acc_status = AccStat.INACTIVE.value
 
     def reactivate(self) -> None:
         """Restores full operational status to an inactive account instance.

@@ -115,7 +115,7 @@ def select_acc(
     acc_map: dict[str, str],
     id_to_skip: str | None = None,
     heading: str | None = None,
-) -> str | None:
+) -> str:
     """Renders a dynamically numbered list of accounts for user selection.
 
     Args:
@@ -146,14 +146,14 @@ def select_acc(
 
     if not options:
         print("No eligible accounts available.")
-        return
+        return "empty_account"
 
     print()
     choice = input(f"  Select option (1-{len(options)}) → ").strip()
 
     if choice not in options:
         print("Invalid account selection. Selection canceled.")
-        return
+        return "invalid_choice"
 
     return options[choice]
 

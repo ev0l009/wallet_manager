@@ -1,7 +1,8 @@
 from ui.menu_states import MenuState
 from models.enums import (
     AccType,
-    AccDashState
+    AccDashState,
+    ExpCatOpts
 )
 from exceptions.errors import InvalidAccountTypeError
 
@@ -155,3 +156,37 @@ def select_acc(
         return
 
     return options[choice]
+
+
+def get_exp_category() -> str | None:
+    """Presents recognized expense categorization options for tracking.
+
+    Returns:
+        str: The chosen plain lowercase expense category label.
+
+    Raises:
+        InvalidOptionError: If the user provides an out-of-bounds input.
+    """
+    cat_options = {
+        "1": ExpCatOpts.FOOD.value,
+        "2": ExpCatOpts.BILLS.value,
+        "3": ExpCatOpts.TRANSPORT.value,
+        "4": ExpCatOpts.AIRTIME.value,
+        "5": ExpCatOpts.HEALTH.value,
+        "6": ExpCatOpts.SHOPPING.value,
+        "7": ExpCatOpts.ENTERTAINMENT.value,
+        "8": ExpCatOpts.OTHERS.value,
+    }
+
+    print("\n  Select category:")
+    for idx, cat in cat_options.items():
+        print(f"  {idx}. {cat.capitalize()}")
+
+    print()
+    choice = input(f"  Select option (1-{len(cat_options)}) → ").strip()
+
+    if choice not in cat_options:
+        print("Invalid category selection. Selection canceled.")
+        return
+
+    return cat_options[choice]

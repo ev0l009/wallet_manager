@@ -13,7 +13,8 @@ from ui.menu_states import MenuState
 from ui.menus import (
     get_main_menu_state,
     select_acc,
-    get_acc_dash_state
+    get_acc_dash_state,
+    get_exp_category
 )
 from ui.views import (
     display_active_accounts,
@@ -81,6 +82,7 @@ def wallet_runner() -> None:
                     elif acc_dash_state == AccDashState.BALANCE.value:
                         acc_bal = wallet.get_acc_bal(acc.id)
                         display_acc_bal(acc_bal)
+                        acc_dash_state = AccDashState.ACC_DASH.value
                     elif acc_dash_state == AccDashState.DEPOSIT.value:
                         raw_amt = input("Enter amount: ").strip()
                         raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
@@ -94,6 +96,21 @@ def wallet_runner() -> None:
                             )
                         except WalletError as err:
                             print(err)
+                            acc_dash_state = AccDashState.ACC_DASH.value
+                    elif acc_dash_state == AccDashState.WITHRAWAL.value:
+                        raw_amt = input("Enter amount: ").strip()
+                        exp_cat = get_exp_category()
+                        desc = input("Enter a short description: ").strip()
+                        raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+                        try:
+                            wallet.record_expense(
+                                acc_id=acc.id,
+                                amount=raw_amt,
+                                category=exp_cat,
+                                desc=desc,
+                                inp_date=raw_date
+                            )
+
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.REACTIVATE_ACC.value:

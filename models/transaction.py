@@ -33,7 +33,7 @@ class Transaction:
     category: str | None = None
     desc: str | None = None
     source_acc_id: str | None = None
-    target_acc_id: str
+    target_acc_id: str | None = None
     transaction_date: date
     reverses_transaction_id: str | None = None
 
@@ -59,7 +59,7 @@ class Transaction:
                 raise InvalidCategoryError(f"Invalid expense category: {self.category}")
 
         elif self.transaction_type == TrxType.DEPOSIT.value:
-            if not self.target_acc_id.strip():
+            if not self.target_acc_id.strip(): # type: ignore
                 raise EntityNotFoundError("Account ID cannot be empty.")
 
         else:

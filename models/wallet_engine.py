@@ -251,20 +251,19 @@ class WalletEngine:
         target_acc_id: str,
         inp_date: str
     ):
-        if source_acc_id not in self.data["accounts"]:
-            raise EntityNotFoundError()
-        source_acc_bal = self.get_acc_bal(source_acc_id)
-
-        int_amt = convert_to_kobo(inp_amt)
-
-        if int_amt > source_acc_bal:
-            raise InsufficientFundsError()
-        
-        if target_acc_id not in self.data["accounts"]:
-            raise EntityNotFoundError()
-        valid_date = get_valid_date(inp_date)
-
         try:
+            if source_acc_id not in self.data["accounts"]:
+                raise EntityNotFoundError()
+            source_acc_bal = self.get_acc_bal(source_acc_id)
+
+            int_amt = convert_to_kobo(inp_amt)
+
+            if int_amt > source_acc_bal:
+                raise InsufficientFundsError()
+            
+            if target_acc_id not in self.data["accounts"]:
+                raise EntityNotFoundError()
+            valid_date = get_valid_date(inp_date)
             trx = Transaction(
                 id=self.generate_id(self.TRX_ID_PREFIX),
                 amount=int_amt,
@@ -295,18 +294,55 @@ class WalletEngine:
         desc: str,
         inp_date: str
     ):
-        if acc_id not in self.data["accounts"]:
-            raise EntityNotFoundError()
-
-        int_amt = convert_to_kobo(amount)
-
-        valid_date = get_valid_date(inp_date)
 
         try:
+            if acc_id not in self.data["accounts"]:
+                raise EntityNotFoundError()
+
+            int_amt = convert_to_kobo(amount)
+
+            valid_date = get_valid_date(inp_date)
+
             trx = Transaction(
                 id=self.generate_id(self.TRX_ID_PREFIX),
                 amount=int_amt,
                 target_acc_id=acc_id,
+                desc=desc,
+                transaction_date=valid_date,
+                transaction_type=TrxType.DEPOSIT.value
+            )
+        except WalletError:
+            raise
+
+        proposed_data = deepcopy(self.data)
+
+        proposed_data["transactions"].append(trx)
+        proposed_data["accounts"][acc_id].credit(int_amt)
+
+        self.data = proposed_data
+
+    def record_expense(
+        self,
+        acc_id: str,
+        amount: str,
+        exp_cat: str,
+        desc: str,
+        inp_date: str
+    ):
+
+        try:
+            if acc_id not in self.data["accounts"]:
+                raise EntityNotFoundError()
+
+            int_amt = convert_to_kobo(amount)
+
+            valid_date = get_valid_date(inp_date)
+
+            trx = Transaction(
+                id=self.generate_id(self.TRX_ID_PREFIX),
+                amount=int_amt,
+                category=exp_cat,
+                source_acc_id=acc_id,
                 desc=desc,
                 transaction_date=valid_date,
                 transaction_type=TrxType.DEPOSIT.value

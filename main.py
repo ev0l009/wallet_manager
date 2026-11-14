@@ -110,15 +110,16 @@ def wallet_runner() -> None:
             raw_amt = input("Enter amount: ").strip()
             target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
             raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-            try:
-                wallet.record_transfer(
-                    source_acc_id=source_acc_id,
-                    target_acc_id=target_acc_id,
-                    inp_amt=raw_amt,
-                    inp_date=raw_date
-                )
-            except WalletError as err:
-                print(err)
+            if source_acc_id and target_acc_id:
+                try:
+                    wallet.record_transfer(
+                        source_acc_id=source_acc_id,
+                        target_acc_id=target_acc_id,
+                        inp_amt=raw_amt,
+                        inp_date=raw_date
+                    )
+                except WalletError as err:
+                    print(err)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.TRANSACTIONS.value:

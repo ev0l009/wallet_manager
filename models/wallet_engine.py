@@ -273,7 +273,7 @@ class WalletEngine:
                 transaction_date=valid_date,
                 transaction_type=TrxType.TRANSFER.value
             )
-        except WalletError as err:
+        except WalletError:
             raise
         
         # Prepare an isolated proposed application state.

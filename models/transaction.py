@@ -32,7 +32,7 @@ class Transaction:
     transaction_type: str
     category: str | None = None
     desc: str | None = None
-    source_acc_id: str
+    source_acc_id: str | None = None
     target_acc_id: str
     transaction_date: date
     reverses_transaction_id: str | None = None
@@ -47,13 +47,13 @@ class Transaction:
             raise InvalidAmountError("Amount cannot be a negative value.")
         
         if self.transaction_type == TrxType.TRANSFER.value:
-            if not self.source_acc_id.strip() or not self.target_acc_id.strip():
+            if not self.source_acc_id.strip() or not self.target_acc_id.strip(): # type: ignore
                 raise EntityNotFoundError("Account ID cannot be empty.")
             if self.source_acc_id == self.target_acc_id:
                 raise SelfTransferError("Source and target accounts cannot be the same.")
 
         elif self.transaction_type == TrxType.WITHDRAW.value:
-            if not self.source_acc_id.strip():
+            if not self.source_acc_id.strip(): # type: ignore
                 raise EntityNotFoundError("Account ID cannot be empty.")
             if self.category not in {cat.value for cat in ExpCatOpts}:
                 raise InvalidCategoryError(f"Invalid expense category: {self.category}")

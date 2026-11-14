@@ -109,7 +109,7 @@ class WalletEngine:
                     f"Unsupported identifier prefix: {prefix}"
                 )
 
-    def create_account(self) -> None:
+    def create_account(self, acc_name: str, acc_type: str) -> None:
         """Guide account creation and persist the resulting account.
 
         New accounts always begin with zero Kobo and ACTIVE status.
@@ -121,28 +121,13 @@ class WalletEngine:
             None: If user input validation fails.
         """
 
-        # Collect existing account names for uniqueness validation.
-        existing_names = {
-            acc.id: acc.acc_name
-            for acc in self.data["accounts"].values()
-        }
-
-        # Collect and validate account details.
-        try:
-            valid_name = get_valid_acc_name(existing_names)
-            acc_type = get_acc_type()
-
-        except ValueError as err:
-            print(f"\n  [!] Validation Error: {err}")
-            return None
-
         # Generate a system-controlled account identifier.
         account_id = self.generate_id("acc")
 
         # Construct the account with its mandatory initial state.
         new_account = Account(
             id=account_id,
-            acc_name=valid_name,
+            acc_name=acc_name,
             acc_type=acc_type,
         )
 

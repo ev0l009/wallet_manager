@@ -31,7 +31,7 @@ def convert_to_kobo(user_input: str) -> int:
         raise InvalidAmountError()
     
 
-def get_valid_acc_name(existing_names: dict[str, str]) -> str:
+def accget_valid_acc_name(existing_names: dict[str, str]) -> str:
     """Collect and validate a new account name.
 
     Args:

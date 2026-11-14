@@ -14,8 +14,10 @@ from ui.menus import (
     get_main_menu_state,
     select_acc,
     get_acc_dash_state,
-    get_exp_category
+    get_exp_category,
+    get_acc_type
 )
+from utils.validators import get_valid_acc_name
 from ui.views import (
     display_active_accounts,
     display_acc_bal,
@@ -62,7 +64,10 @@ def wallet_runner() -> None:
 
         # Account management operations.
         elif current_state == MenuState.CREATE_ACCOUNT.value:
-            wallet.create_account()
+            acc_map = wallet.get_active_acc_map()
+            acc_name = get_valid_acc_name(acc_map)
+            acc_type = get_acc_type()
+            wallet.create_account(acc_name,acc_type)
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.LIST_ACCOUNTS.value:

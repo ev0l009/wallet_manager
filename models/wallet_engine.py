@@ -24,12 +24,9 @@ from models.enums import (
 # from file_manager.storage import Storage
 
 from utils.validators import (
-    get_valid_acc_name,
     convert_to_kobo,
     get_valid_date
 )
-
-from ui.menus import get_acc_type
 
 from exceptions.errors import (
     EntityNotFoundError, 
@@ -140,9 +137,6 @@ class WalletEngine:
         # self.storage.save(proposed_data)
 
         self.data = proposed_data
-
-        print("\n  [✓] Account created successfully.")
-
 
     def get_account(self, account_id: str) -> Account:
         """Retrieve an account using its unique identifier.

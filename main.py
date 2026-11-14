@@ -65,26 +65,36 @@ def wallet_runner() -> None:
 
         # Account management operations.
         elif current_state == MenuState.CREATE_ACCOUNT.value:
-            
             raw_name = input("  Enter account name → ")
-            acc_name = get_valid_acc_name(raw_name, acc_map)
-            acc_type = get_acc_type()
-            wallet.create_account(acc_name,acc_type)
+            try:
+                acc_name = get_valid_acc_name(raw_name, acc_map)
+                acc_type = get_acc_type()
+                wallet.create_account(acc_name,acc_type)
+            except WalletError as err:
+                print(err)
+            else:
+                print("\n  [✓] Account created successfully.")
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.LIST_ACCOUNTS.value:
+
             active_accounts = wallet.get_active_accounts()
+            
             display_active_accounts(active_accounts)
+
             current_state = MenuState.DASHBOARD.value
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
-            
-            source_acc_id = select_acc(acc_map)
-            raw_amt = input("Enter amount: ").strip()
-            target_acc_id = select_acc(acc_map=acc_map, id_to_skip=source_acc_id)
-            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
             try:
+                source_acc_id = select_acc(acc_map)
+                raw_amt = input("Enter amount: ").strip()
+                target_acc_id = select_acc(
+                    acc_map=acc_map, 
+                    id_to_skip=source_acc_id
+                )
+                raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+
                 wallet.record_transfer(
                     source_acc_id=source_acc_id,
                     target_acc_id=target_acc_id,
@@ -93,26 +103,35 @@ def wallet_runner() -> None:
                 )
             except WalletError as err:
                 print(err)
+            else:
+                print("\n  [✓] Transfer record successful.")
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
             
             selected_acc_id = select_acc(acc_map)
+
             if selected_acc_id:
+
                 acc = wallet.get_account(selected_acc_id)
                 acc_dash_state = AccDashState.ACC_DASH.value
+
                 while True:
                     if acc_dash_state == AccDashState.ACC_DASH.value:
                         acc_dash_state = get_acc_dash_state(acc.acc_name)
+
                     elif acc_dash_state == AccDashState.BALANCE.value:
+
                         acc_bal = wallet.get_acc_bal(acc.id)
                         display_acc_bal(acc_bal)
                         acc_dash_state = AccDashState.ACC_DASH.value
+
                     elif acc_dash_state == AccDashState.DEPOSIT.value:
-                        raw_amt = input("Enter amount: ").strip()
-                        raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-                        desc = input("Enter a short description: ").strip()
+                        
                         try:
+                            raw_amt = input("Enter amount: ").strip()
+                            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+                            desc = input("Enter a short description: ").strip()
                             wallet.record_income(
                                 acc_id=acc.id,
                                 amount=raw_amt,
@@ -121,6 +140,8 @@ def wallet_runner() -> None:
                             )
                         except WalletError as err:
                             print(err)
+                        else:
+                            print("\n  [✓] Income record successful.")
                         acc_dash_state = AccDashState.ACC_DASH.value
 
                     elif acc_dash_state == AccDashState.WITHRAWAL.value:

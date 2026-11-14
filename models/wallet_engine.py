@@ -311,3 +311,12 @@ class WalletEngine:
                 transaction_date=valid_date,
                 transaction_type=TrxType.DEPOSIT.value
             )
+        except WalletError:
+            raise
+
+        proposed_data = deepcopy(self.data)
+
+        proposed_data["transactions"].append(trx)
+        proposed_data["accounts"][acc_id].credit(int_amt)
+
+        self.data = proposed_data

@@ -123,6 +123,11 @@ def wallet_runner() -> None:
                         except WalletError as err:
                             print(err)
                         acc_dash_state = AccDashState.RETURN.value
+                    elif acc_dash_state == AccDashState.RETURN.value:
+                        break
+                    else:
+                        print("Invalid selection. try again...")
+                        acc_dash_state = AccDashState.ACC_DASH.value
                             
 
             current_state = MenuState.DASHBOARD.value

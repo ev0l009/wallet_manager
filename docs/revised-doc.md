@@ -178,6 +178,13 @@
   - Reversal creation and corresponding account balance mutations must be persisted atomically.
   - Reversal operations must comply with the transaction capacity and persistence constraints.
 
+- **Reversal and Ledger Integrity Clarification**
+  - A reversal must not modify, delete, deactivate, or remove the original transaction from the historical ledger.
+  - Both the original transaction and its corresponding reversal must remain independently identifiable and available for historical balance reconstruction.
+  - Ledger-derived balance calculations must apply the original transaction's financial effect and the reversal's exact inverse financial effect.
+  - The combined financial effect of a successfully reversed transaction and its corresponding reversal must equal zero.
+  - The exclusion of reversed original transactions applies to effective income and expense reporting, not to the underlying ledger balance calculation.
+
 ---
 
 # 2\. Business Rules

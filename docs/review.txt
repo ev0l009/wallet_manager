@@ -70,3 +70,19 @@ The Gate 1 deliverables require a **typing strategy** and a **documentation appr
 Take findings **1 through 5** first. For each: state the problem in your own words, say why it matters, and propose your correction. Don't paste a revised full document yet. Then answer the defend-your-decision questions briefly. Where you disagree with me, argue it. A well-defended decision counts for more than agreement.
 
 I'm tracking where you reasoned well unaided and where you needed hints. So far, positive: traceability discipline and awareness of atomic file replacement. Pattern to watch: requirements that contradict your own later sections, and web/server vocabulary leaking into a CLI design.
+
+
+
+
+
+Suppose a user receives ₦50,000 and subsequently spends ₦40,000. They then attempt to reverse the original ₦50,000 income.
+
+Should the system:
+- A. Reject the reversal because the account no longer has sufficient funds.
+- B. Allow the reversal and permit the account balance to become negative.
+- C. Allow reversal only if sufficient funds are available, otherwise require the user to resolve the shortfall first.
+
+
+50,000 -> income
+40,000 -> expense
+bal -> 10,000 = 70,000

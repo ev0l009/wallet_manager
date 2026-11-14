@@ -10,7 +10,6 @@ from exceptions.errors import (
     EntityNotFoundError,
     InvalidAccountNameError,
     InvalidAccountTypeError,
-    InvalidAmountError,
     BusinessRuleError,
     InactiveAccountError
 )
@@ -28,7 +27,7 @@ class Account:
         id: str,
         acc_name: str,
         acc_type: str,
-        created_at: datetime | str | None = None,
+        created_at: datetime,
     ):
         if not id or not id.strip():
             raise EntityNotFoundError("Account ID cannot be empty.")
@@ -72,19 +71,6 @@ class Account:
 
 
     # --- MUTABLE LAYER PROPERTIES ---
-
-    @property
-    def balance(self) -> int:
-        """int: The current stored monetary asset value."""
-        return self._balance
-
-    @balance.setter
-    def balance(self, amount: int) -> None:
-        if type(amount) is not int:
-            raise InvalidAmountError("Amount must be a valid whole number integer.")
-        if amount < 0:
-            raise InvalidAmountError("Account balance cannot drop below zero.")
-        self._balance = amount
 
     @property
     def acc_status(self) -> str:

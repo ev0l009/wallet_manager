@@ -1,0 +1,91 @@
+Yes. Before we move to the project structure, I'd recommend a **small requirements-document update** to capture the decisions we've made.
+
+We don't need to rewrite the document or introduce new requirements. We need to ensure that the design decisions, scope boundaries and implementation expectations are consistent.
+
+I'd update the following sections.
+
+## **1. Sections that need updating**
+
+| Section               | Required adjustment                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| Transaction reversal  | Define the conditions under which a reversal is permitted.                              |
+| Reporting             | Document retrospective reporting semantics for reversed transactions.                   |
+| Financial integrity   | Explicitly prohibit negative account balances.                                          |
+| Architecture          | Clarify the responsibilities of models, storage and business logic.                     |
+| Transaction ordering  | Specify how transactions sharing the same date are ordered.                             |
+| Persistence           | Document atomic temporary-file replacement for all data modifications.                  |
+| Scope and limitations | Explicitly retain schema versioning, migrations and automatic recovery as out of scope. |
+
+## **2. Suggested additions**
+
+These are the actual requirements I'd want reflected in the document.
+
+**A. Transaction reversal**
+
+- A transaction reversal must be linked to its original transaction.
+- The original transaction must remain in the transaction history.
+- A successfully reversed transaction must no longer contribute to effective balance calculations or historical reports.
+- A reversal must not cause an account's balance to become negative.
+- If the available balance is insufficient, the reversal must be rejected without modifying the existing transaction or account state.
+
+**B. Reporting semantics**
+
+We're adopting retrospective correction.
+
+For example, if an income transaction recorded in September is reversed in October, September's report must exclude that income.
+
+The reversal date should still be retained for historical traceability.
+
+**C. Architecture and separation of concerns**
+
+Document the following responsibilities:
+
+- Models: domain representation, internal validation and entity invariants.
+- Storage: serialization, deserialization and persistence.
+- Business layer (`wallet_engine`): business rules, operation coordination and interactions between models and storage.
+
+One important qualification: cross-entity business rules, such as checking whether an account has sufficient funds for a reversal, belong in the business layer.
+
+**D. Transaction ordering**
+
+- Primary ordering: transaction date.
+- Secondary ordering: original insertion order for transactions sharing the same date.
+- Creation timestamps and explicit ordering identifiers are deferred improvements.
+
+**E. Persistence**
+
+Document that all data-modifying operations use temporary-file writes followed by atomic replacement of the original file.
+
+This includes account creation, account updates, account deactivation and transaction operations.
+
+**F. Explicit scope exclusion**
+
+Keep these outside the current implementation:
+
+- Storage schema versioning.
+- Automatic schema migrations.
+- Automated backup and recovery mechanisms.
+
+Your existing atomic persistence mechanism remains part of the current scope.
+
+## **3. One thing I would not change**
+
+I wouldn't modify the proposed project structure in the design document yet.
+
+Your implementation may have a simpler structure, and that isn't automatically a problem. We should first understand what responsibilities your existing modules actually perform.
+
+A project with fewer files and clear boundaries is preferable to one with numerous folders that merely create the appearance of good architecture.
+
+## **4. Recommended next step**
+
+Before sharing your folder structure, update those relevant sections of the requirements document.
+
+You don't need to spend time rewriting everything. Once that's done, share your current structure and we'll examine:
+
+1. What responsibilities each module currently handles.
+2. Where responsibilities overlap.
+3. Whether dependencies flow in the right direction.
+4. Which parts of the proposed architecture are actually necessary.
+5. What should be reorganized, retained or simplified.
+
+**The objective is not to make your implementation resemble the design document visually. It's to make the implementation satisfy the design decisions without unnecessary complexity.**

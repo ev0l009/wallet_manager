@@ -11,6 +11,9 @@ import re
 from decimal import Decimal, InvalidOperation
 
 def convert_to_kobo(user_input: str) -> int:
+    if not isinstance(user_input, str):
+        raise InvalidAmountError()
+
     value = user_input.strip()
 
     if not re.fullmatch(r"\d+(?:\.\d{1,2})?", value):
@@ -71,19 +74,28 @@ def get_valid_acc_name(raw_name: str, existing_names: dict[str, str]) -> str:
 
     return cleaned_name
 
-def get_valid_date(raw_date: str) -> date:    
+def get_valid_date(raw_date: str) -> date:
+    if not isinstance(raw_date, str):
+        raise InvalidDateError("Date must be a string.")
+
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date):
+        raise InvalidDateError(
+            f"'{raw_date}' must follow YYYY-MM-DD format."
+        )
+
     try:
-        # Automatically rejects invalid calendar dates (e.g., Feb 30, Month 13)
-        parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        parsed_date = datetime.strptime(
+            raw_date, "%Y-%m-%d"
+        ).date()
+
     except ValueError as err:
         raise InvalidDateError(
             f"'{raw_date}' is not a valid calendar date."
         ) from err
 
-    # Prevent future dates
     if parsed_date > date.today():
         raise InvalidDateError(
-            f"'{raw_date}' cannot be in the future (today is {date.today()})."
+            f"'{raw_date}' cannot be in the future."
         )
 
     return parsed_date

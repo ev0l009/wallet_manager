@@ -250,7 +250,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        # Persist before committing the in-memory state.
+        self.save()
         self.data = proposed_data
 
         return deepcopy(trx)
@@ -289,7 +289,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        # Persist before committing the in-memory state.
+        self.save()
         self.data = proposed_data
 
         return deepcopy(trx)
@@ -407,11 +407,12 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(reversal)
 
-        # Persist before committing the in-memory state.
+        self.save()
         self.data = proposed_data
 
         return deepcopy(reversal)
 
+    
     def reactivate_acc(self, acc_id: str) -> Account:
         """Reactivate an inactive account."""
 
@@ -420,6 +421,17 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         account = proposed_data["accounts"][acc_id]
 
+        account_name = account.acc_name.casefold()
+
+        for other_account in proposed_data["accounts"].values():
+            if other_account.id == acc_id:
+                continue
+
+            if other_account.acc_name.casefold() == account_name:
+                raise DuplicateAccountNameError(
+                    f"An account named '{account.acc_name}' already exists."
+                )
+
         account.reactivate()
 
         self.save()
@@ -427,10 +439,12 @@ class WalletEngine:
 
         return deepcopy(account)
 
-    def deactivate_acc(self, acc_id: str) -> Account:
-        """Deactivate an account with a zero balance."""
 
-        self.get_account(acc_id)
+    
+    def deactivate_acc(self, acc_id: str) -> Account:
+        """Deactivate an active account with a zero balance."""
+
+        self._get_active_account(acc_id)
 
         acc_bal = self.get_acc_bal(acc_id)
 

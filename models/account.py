@@ -1,128 +1,176 @@
-"""Account domain models for the Finance Tracker application.
 
-Defines the core operational Account entity, ensuring strict maintenance of 
-financial invariants, lifecycle state machines, and safe JSON serialization.
+"""Account domain model for the Finance Tracker application.
+
+Defines the Account entity, enforcing account-level invariants,
+lifecycle transitions, and explicit dictionary serialization.
 """
 
 from datetime import datetime, timezone
+from typing import Self
 
 from exceptions.errors import (
-    EntityNotFoundError,
     InvalidAccountNameError,
     InvalidAccountTypeError,
     BusinessRuleError,
 )
 
-from models.enums import (
-    AccType,
-    AccStat
-)
-
+from models.enums import AccType, AccStat
 from models.types import AccDict
 
-from typing import Self
 
 class Account:
-    """Encapsulates account configurations, state constraints, and balance updates.""" 
+    """Represents a financial account and its lifecycle state."""
 
     def __init__(
         self,
         id: str,
         acc_name: str,
         acc_type: str,
-        created_at: datetime,
-    ):
-        if not id or not id.strip():
-            raise EntityNotFoundError("Account ID cannot be empty.")
-        self._id = id
+        created_at: datetime | None = None,
+    ) -> None:
+        # Account identifier
+        if not isinstance(id, str) or not id.strip(): # type: ignore
+            raise ValueError("Account ID must be a non-empty string.")
 
-        if not acc_name.strip():
-            raise InvalidAccountNameError("Account name cannot be empty.")
-        if len(acc_name.strip()) < 3:
-            raise InvalidAccountNameError("Account name cannot be less three characters.")
+        self._id = id.strip()
+
+        # Account name
         self.acc_name = acc_name
 
-        allowed_types = {t.value for t in AccType}
+        # Account type
+        allowed_types = {account_type.value for account_type in AccType}
+
         if acc_type not in allowed_types:
-            raise InvalidAccountTypeError(f"Invalid account type '{acc_type}'. Must be one of {allowed_types}")
+            raise InvalidAccountTypeError(
+                f"Invalid account type '{acc_type}'. "
+                f"Must be one of {allowed_types}."
+            )
+
         self._acc_type = acc_type
 
-        if isinstance(created_at, str):
-            self._created_at = datetime.fromisoformat(created_at)
-        else:
-            self._created_at = created_at if created_at else datetime.now(timezone.utc).replace(microsecond=0)
+        # Creation timestamp
+        if created_at is None:
+            created_at = datetime.now(timezone.utc).replace(microsecond=0)
 
+        if not isinstance(created_at, datetime): # type: ignore
+            raise TypeError("created_at must be a datetime instance.")
+
+        if created_at.tzinfo is None or created_at.utcoffset() is None:
+            raise ValueError("created_at must be timezone-aware.")
+
+        self._created_at = created_at
+
+        # Initial lifecycle state
         self._acc_status = AccStat.ACTIVE.value
 
+    # --- READ-ONLY PROPERTIES ---
 
-    # --- WRITE-ONCE INVARIANT PROPERTIES ---
- 
     @property
     def id(self) -> str:
-        """str: The unique, unalterable identifier for this account instance."""
+        """Returns the account's unique identifier."""
         return self._id
 
     @property
     def acc_type(self) -> str:
-        """str: The classification type (e.g., bank, cash, savings) assigned on creation."""
+        """Returns the account classification."""
         return self._acc_type
 
     @property
     def created_at(self) -> datetime:
-        """datetime: The immutable record creation timestamp."""
+        """Returns the account creation timestamp."""
         return self._created_at
-
-
-    # --- MUTABLE LAYER PROPERTIES ---
 
     @property
     def acc_status(self) -> str:
-        """str: The operational availability lifecycle state of the account."""
+        """Returns the account's current lifecycle state."""
         return self._acc_status
 
-    @acc_status.setter
-    def acc_status(self, value: str) -> None:
-        allowed_statuses = {status.value for status in AccStat}
-        if value not in allowed_statuses:
-            raise BusinessRuleError(f"Invalid account status. Must be one of {allowed_statuses}")
-        self._acc_status = value
+    # --- MUTABLE PROPERTIES ---
 
-    # --- BUSINESS CORE METHODS ---
-    
-    def deactivate(self):
-        """Attempts to change status to inactive if balance invariants allow.
+    @property
+    def acc_name(self) -> str:
+        """Returns the account name."""
+        return self._acc_name
 
-        Returns:
-            bool: True if the account was successfully deactivated, False otherwise.
-        """
-        self.acc_status = AccStat.INACTIVE.value
+    @acc_name.setter
+    def acc_name(self, value: str) -> None:
+        """Validates and updates the account name."""
+
+        if not isinstance(value, str): # type: ignore
+            raise InvalidAccountNameError(
+                "Account name must be a string."
+            )
+
+        value = value.strip()
+
+        if not value:
+            raise InvalidAccountNameError(
+                "Account name cannot be empty."
+            )
+
+        if len(value) < 3:
+            raise InvalidAccountNameError(
+                "Account name must contain at least three characters."
+            )
+
+        self._acc_name = value
+
+    # --- LIFECYCLE METHODS ---
+
+    def deactivate(self) -> None:
+        """Transitions an active account to inactive."""
+
+        if self.acc_status == AccStat.INACTIVE.value:
+            raise BusinessRuleError(
+                "Account is already inactive."
+            )
+
+        self._acc_status = AccStat.INACTIVE.value
 
     def reactivate(self) -> None:
-        """Restores full operational status to an inactive account instance.
+        """Transitions an inactive account to active."""
 
-        Raises:
-            AccStatusError: If the account state is already marked active.
-        """
-        self.acc_status = AccStat.ACTIVE.value
+        if self.acc_status == AccStat.ACTIVE.value:
+            raise BusinessRuleError(
+                "Account is already active."
+            )
 
-    # --- FACTORY & SERIALIZATION ---
+        self._acc_status = AccStat.ACTIVE.value
+
+    # --- SERIALIZATION ---
 
     @classmethod
     def from_dict(cls, data: AccDict) -> Self:
-        """Reconstructs a live Account object instance from a storage data map."""
+        """Reconstructs an Account instance from a dictionary."""
+
         timestamp = datetime.fromisoformat(data["created_at"])
+
         instance = cls(
             id=data["id"],
             acc_name=data["acc_name"],
             acc_type=data["acc_type"],
             created_at=timestamp,
         )
+
         if "acc_status" in data:
-            instance.acc_status = data["acc_status"]
+            status = data["acc_status"]
+
+            allowed_statuses = {
+                account_status.value for account_status in AccStat
+            }
+
+            if status not in allowed_statuses:
+                raise BusinessRuleError(
+                    f"Invalid stored account status: '{status}'."
+                )
+
+            instance._acc_status = status
+
         return instance
 
     def to_dict(self) -> AccDict:
-        """Serializes current instance state into a plain dictionary data map."""
+        """Converts the Account instance into a serializable dictionary."""
+
         return {
             "id": self.id,
             "acc_name": self.acc_name,

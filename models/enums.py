@@ -1,4 +1,6 @@
+
 from enum import Enum
+
 
 class AccDashState(Enum):
     """Navigation states for individual account inspection dashboards."""
@@ -6,17 +8,19 @@ class AccDashState(Enum):
     ACC_DASH = "acc_dash"
     BALANCE = "balance"
     DEPOSIT = "deposit"
-    WITHRAWAL = "withdrawal"
+    WITHDRAWAL = "withdrawal"
     DEACTIVATE = "deactivate"
     RETURN = "return"
 
+
 class AccType(Enum):
-    """Supported underlying storage classification for accounts."""
+    """Supported account classifications."""
 
     BANK = "bank"
     CASH = "cash"
     SAVINGS = "savings"
     MOBILE = "mobile"
+
 
 class AccStat(Enum):
     """Lifecycle states for operational accounts."""
@@ -24,16 +28,19 @@ class AccStat(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 
+
 class TrxType(Enum):
-    """Financial tracking action classifications."""
+    """Financial transaction classifications."""
 
     TRANSFER = "transfer"
     WITHDRAW = "withdraw"
     DEPOSIT = "deposit"
     REVERSAL = "reversal"
 
+
 class ExpCatOpts(Enum):
-    """Valid expense categories"""
+    """Valid expense categories."""
+
     FOOD = "food"
     BILLS = "bills"
     TRANSPORT = "transport"

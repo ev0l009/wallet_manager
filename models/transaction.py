@@ -1,11 +1,13 @@
-"""Transaction domain models for the Finance Tracker application.
 
-Defines an immutable data layer structure modeling financial transfers, 
-deposits, and withdrawals using Python data classes.
+"""Transaction domain model for the Finance Tracker application.
+
+Defines immutable financial transaction records and validates
+their individual structural and domain invariants.
 """
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Self
 
 from exceptions.errors import (
     EntityNotFoundError,
@@ -13,18 +15,16 @@ from exceptions.errors import (
     SelfTransferError,
     InvalidTransactionTypeError,
     InvalidCategoryError,
+    BusinessRuleError,
 )
-from models.enums import (
-    TrxType,
-    ExpCatOpts,
-)
-from models.types import (
-    TrxDict
-)
+
+from models.enums import TrxType, ExpCatOpts
+from models.types import TrxDict
+
 
 @dataclass(frozen=True, kw_only=True)
 class Transaction:
-    """Base immutable schema for all financial transaction entities."""
+    """Represents an immutable financial transaction record."""
 
     id: str
     amount: int
@@ -34,48 +34,137 @@ class Transaction:
     desc: str | None = None
     source_acc_id: str | None = None
     target_acc_id: str | None = None
-    transaction_date: date
     reverses_transaction_id: str | None = None
 
-    def __post_init__(self):
-        if not self.id.strip():
-            raise EntityNotFoundError("Transaction ID cannot be empty.")
-        
-        if type(self.amount) is not int:
-            raise InvalidAmountError("Amount must be a valid whole number integer.")
-        if self.amount < 0:
-            raise InvalidAmountError("Amount cannot be a negative value.")
-        
+    def __post_init__(self) -> None:
+        # Transaction ID
+        if not isinstance(self.id, str) or not self.id.strip(): # type: ignore
+            raise EntityNotFoundError(
+                "Transaction ID must be a non-empty string."
+            )
+
+        # Amount
+        if type(self.amount) is not int or self.amount <= 0:
+            raise InvalidAmountError(
+                "Transaction amount must be a positive whole number."
+            )
+
+        # Transaction date
+        if not isinstance(self.transaction_date, date): # type: ignore
+            raise BusinessRuleError(
+                "Transaction date must be a valid date."
+            )
+
+        # Transaction type
+        allowed_types = {trx_type.value for trx_type in TrxType}
+
+        if not isinstance(self.transaction_type, str) or ( # type: ignore
+            self.transaction_type not in allowed_types
+        ):
+            raise InvalidTransactionTypeError(
+                f"Invalid transaction type: {self.transaction_type!r}."
+            )
+
+        # Account references
+        for account_id in (self.source_acc_id, self.target_acc_id):
+            if account_id is not None and (
+                not isinstance(account_id, str) or not account_id.strip() # type: ignore
+            ):
+                raise EntityNotFoundError(
+                    "Account IDs must be non-empty strings when provided."
+                )
+
+        # Transaction-specific structural validation
         if self.transaction_type == TrxType.TRANSFER.value:
-            if not self.source_acc_id.strip() or not self.target_acc_id.strip(): # type: ignore
-                raise EntityNotFoundError("Account ID cannot be empty.")
+            if self.source_acc_id is None or self.target_acc_id is None:
+                raise EntityNotFoundError(
+                    "Transfers require source and target account IDs."
+                )
+
             if self.source_acc_id == self.target_acc_id:
-                raise SelfTransferError("Source and target accounts cannot be the same.")
+                raise SelfTransferError(
+                    "Source and target accounts cannot be the same."
+                )
+
+            if self.category is not None:
+                raise InvalidCategoryError(
+                    "Transfers cannot have an expense category."
+                )
 
         elif self.transaction_type == TrxType.WITHDRAW.value:
-            if not self.source_acc_id.strip(): # type: ignore
-                raise EntityNotFoundError("Account ID cannot be empty.")
-            if self.category not in {cat.value for cat in ExpCatOpts}:
-                raise InvalidCategoryError(f"Invalid expense category: {self.category}")
+            if self.source_acc_id is None:
+                raise EntityNotFoundError(
+                    "Withdrawals require a source account ID."
+                )
+
+            allowed_categories = {
+                category.value for category in ExpCatOpts
+            }
+
+            if self.category not in allowed_categories:
+                raise InvalidCategoryError(
+                    f"Invalid expense category: {self.category!r}."
+                )
 
         elif self.transaction_type == TrxType.DEPOSIT.value:
-            if not self.target_acc_id.strip(): # type: ignore
-                raise EntityNotFoundError("Account ID cannot be empty.")
+            if self.target_acc_id is None:
+                raise EntityNotFoundError(
+                    "Deposits require a target account ID."
+                )
 
-        else:
-            raise InvalidTransactionTypeError("Inavalid transaction type")
+            if self.category is not None:
+                raise InvalidCategoryError(
+                    "Deposits cannot have an expense category."
+                )
+
+        elif self.transaction_type == TrxType.REVERSAL.value:
+            if (
+                not isinstance(self.reverses_transaction_id, str)
+                or not self.reverses_transaction_id.strip()
+            ):
+                raise BusinessRuleError(
+                    "Reversals must reference an original transaction ID."
+                )
+
+            if self.source_acc_id is None and self.target_acc_id is None:
+                raise BusinessRuleError(
+                    "Reversals must reference at least one account."
+                )
 
     @classmethod
-    def parse_json(cls, data: TrxDict) -> TrxDict:
-        """Extracts and sanitizes base fields from a raw dictionary payload."""
+    def from_dict(cls, data: TrxDict) -> Self:
+        """Reconstructs a Transaction from a dictionary."""
+
+        transaction_date = data["transaction_date"]
+
+        if isinstance(transaction_date, str): # type: ignore
+            transaction_date = date.fromisoformat(transaction_date)
+
+        return cls(
+            id=data["id"],
+            amount=data["amount"],
+            transaction_date=transaction_date,
+            transaction_type=data["transaction_type"],
+            category=data.get("category"),
+            desc=data.get("desc"),
+            source_acc_id=data.get("source_acc_id"),
+            target_acc_id=data.get("target_acc_id"),
+            reverses_transaction_id=data.get(
+                "reverses_transaction_id"
+            ),
+        )
+
+    def to_dict(self) -> TrxDict:
+        """Serializes the transaction into a dictionary."""
+
         return {
-            "id": data["id"],
-            "amount": data["amount"],
-            "transaction_date": data.get("transaction_date"),
-            "transaction_type": data["transaction_type"],
-            "category": data["category"],
-            "desc": data["desc"],
-            "source_acc_id": data["source_acc_id"],
-            "target_acc_id": data["source_acc_id"],
-            "reverses_transaction_id": data["reverses_transaction_id"]
+            "id": self.id,
+            "amount": self.amount,
+            "transaction_date": self.transaction_date.isoformat(),
+            "transaction_type": self.transaction_type,
+            "category": self.category,
+            "desc": self.desc,
+            "source_acc_id": self.source_acc_id,
+            "target_acc_id": self.target_acc_id,
+            "reverses_transaction_id": self.reverses_transaction_id,
         }

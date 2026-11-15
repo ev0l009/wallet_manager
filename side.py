@@ -1,19 +1,4 @@
-"""Transaction domain models for the Finance Tracker application.
 
-Defines an immutable data layer structure modeling financial transfers, 
-deposits, and withdrawals using Python data classes.
-"""
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-
-from exceptions import InvalidIDError, InvalidAmountError, SameAccountTransferError, InvalidTransactionTypeError, InvalidCategoryError
-
-from models.types import TrxType, ExpCatOpts, DepositTrxDict, TransferTrxDict, TrxDict, WithdrawalTrxDict
-
-
-def generate_timestamp() -> datetime:
-    """Generates a timezone-aware UTC datetime truncated to seconds."""
-    return datetime.now(timezone.utc).replace(microsecond=0)
 
 @dataclass(frozen=True, kw_only=True)
 class Transaction:

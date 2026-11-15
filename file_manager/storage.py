@@ -14,7 +14,7 @@ from models.account import Account
 from models.transaction import Transaction
 from models.types import (
     JSONData,
-    WalletManagerData
+    WalletEngineData
 )
 
 # Resolution of relative project paths
@@ -27,7 +27,7 @@ def initialize() -> None:
     DB_DIR.mkdir(exist_ok=True, parents=True)
 
  
-def save_app_data(tracker_data: WalletManagerData) -> None:
+def save_app_data(tracker_data: WalletEngineData) -> None:
     """Serializes in-memory tracker state and saves it atomically to a JSON file.
 
     Transforms Account objects into dictionaries and datetime objects into 
@@ -45,13 +45,7 @@ def save_app_data(tracker_data: WalletManagerData) -> None:
 
     # Normalize transaction timestamps to ISO strings
     for trx in tracker_data.get("transactions", []):
-        trx_dict = trx.to_dict()
-        timestamp = trx_dict.get("timestamp")
-        
-        if isinstance(timestamp, datetime):
-            trx_dict["transaction_date"] = timestamp.isoformat()
-            
-        serialized_data["transactions"].append(trx_dict)
+        serialized_data["transactions"].append(trx.to_dict())
 
     temp_file_path = FILE_PATH.with_suffix(".json.tmp")
 
@@ -72,7 +66,7 @@ def save_app_data(tracker_data: WalletManagerData) -> None:
             temp_file_path.unlink()
 
 
-def load_app_data() -> WalletManagerData:
+def load_app_data() -> WalletEngineData:
     """Loads and deserializes structural records from the primary JSON data file.
 
     Reconstructs Python datetime objects and parses stored dictionaries back 
@@ -81,7 +75,7 @@ def load_app_data() -> WalletManagerData:
     Returns:
         TrackerData: An in-memory application dictionary populated with records.
     """
-    deserialized_data: WalletManagerData = {
+    deserialized_data: WalletEngineData = {
         "accounts": {},
         "transactions": []
     }
@@ -115,6 +109,7 @@ def load_app_data() -> WalletManagerData:
             id=acc_id,
             acc_name=acc_copy["acc_name"],
             acc_type=acc_copy["acc_type"],
+            acc_status=acc_copy["acc_status"],
             created_at=acc_copy["created_at"]
         )
 

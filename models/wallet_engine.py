@@ -119,13 +119,13 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["accounts"][new_account.id] = new_account
 
-        # Persistence will happen here before the in-memory commit.
+        self.save()
         self.data = proposed_data
 
-        return new_account
+        return deepcopy(new_account)
     
     def get_account(self, account_id: str) -> Account:
-        """Retrieve an account by ID."""
+        """Retrieve a detached copy of an account by ID."""
 
         account = self.data["accounts"].get(account_id)
 
@@ -134,13 +134,13 @@ class WalletEngine:
                 f"Account '{account_id}' does not exist."
             )
 
-        return account
+        return deepcopy(account)
     
     def get_active_accounts(self) -> list[Account]:
-        """Return all active accounts."""
+        """Return detached copies of all active accounts."""
 
         return [
-            account
+            deepcopy(account)
             for account in self.data["accounts"].values()
             if account.acc_status == AccStat.ACTIVE.value
         ]
@@ -158,10 +158,10 @@ class WalletEngine:
         return account
 
     def get_inactive_accounts(self) -> list[Account]:
-        """Return all inactive accounts."""
+        """Return detached copies of all inactive accounts."""
 
         return [
-            account
+            deepcopy(account)
             for account in self.data["accounts"].values()
             if account.acc_status == AccStat.INACTIVE.value
         ]
@@ -183,8 +183,9 @@ class WalletEngine:
         }
 
     def get_transactions(self) -> list[Transaction]:
-        """Return the complete transaction history, including reversals."""
-        return self.data["transactions"].copy()
+        """Return detached copies of the complete transaction history."""
+
+        return deepcopy(self.data["transactions"])
 
 
     def get_acc_bal(self, acc_id: str) -> int:
@@ -252,7 +253,7 @@ class WalletEngine:
         # Persist before committing the in-memory state.
         self.data = proposed_data
 
-        return trx
+        return deepcopy(trx)
 
     def record_income(
         self,
@@ -291,7 +292,7 @@ class WalletEngine:
         # Persist before committing the in-memory state.
         self.data = proposed_data
 
-        return trx
+        return deepcopy(trx)
 
     def record_expense(
         self,
@@ -331,14 +332,14 @@ class WalletEngine:
         # Save proposed_data through storage before this assignment.
         self.data = proposed_data
 
-        return trx
+        return deepcopy(trx)
     
     def get_transaction(self, trx_id: str) -> Transaction:
-        """Retrieve a transaction by its unique ID."""
+        """Retrieve a detached copy of a transaction by ID."""
 
         for trx in self.data["transactions"]:
             if trx.id == trx_id:
-                return trx
+                return deepcopy(trx)
 
         raise EntityNotFoundError(
             f"Transaction '{trx_id}' does not exist."
@@ -409,7 +410,7 @@ class WalletEngine:
         # Persist before committing the in-memory state.
         self.data = proposed_data
 
-        return reversal
+        return deepcopy(reversal)
 
     def reactivate_acc(self, acc_id: str) -> Account:
         """Reactivate an inactive account."""
@@ -421,10 +422,10 @@ class WalletEngine:
 
         account.reactivate()
 
-        # Persistence will happen here before the in-memory commit.
+        self.save()
         self.data = proposed_data
 
-        return account
+        return deepcopy(account)
 
     def deactivate_acc(self, acc_id: str) -> Account:
         """Deactivate an account with a zero balance."""
@@ -443,10 +444,10 @@ class WalletEngine:
 
         account.deactivate()
 
-        # Persistence will happen here before the in-memory commit.
+        self.save()
         self.data = proposed_data
 
-        return account
+        return deepcopy(account)
 
     @staticmethod
     def _build_effective_transactions(
@@ -474,10 +475,12 @@ class WalletEngine:
 
 
     def get_effective_transactions(self) -> list[Transaction]:
-        """Return transactions whose financial effects remain valid."""
+        """Return detached copies of transactions with valid financial effects."""
 
-        return self._build_effective_transactions(
-            self.data["transactions"]
+        return deepcopy(
+            self._build_effective_transactions(
+                self.data["transactions"]
+            )
         )
 
 

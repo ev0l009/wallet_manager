@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TypedDict, TYPE_CHECKING
-
 from datetime import date
 
 if TYPE_CHECKING:
@@ -23,3 +22,12 @@ class TrxDict(TypedDict):
     source_acc_id: str
     target_acc_id: str
     reverses_transaction_id: str
+
+class AccDict(TypedDict):
+    """Serialization schema for individual accounts stored in JSON."""
+
+    id: str
+    acc_name: str
+    acc_type: str
+    acc_status: str
+    created_at: str

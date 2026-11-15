@@ -11,13 +11,16 @@ from exceptions.errors import (
     InvalidAccountNameError,
     InvalidAccountTypeError,
     BusinessRuleError,
-    InactiveAccountError
 )
 
 from models.enums import (
     AccType,
     AccStat
 )
+
+from models.types import AccDict
+
+from typing import Self
 
 class Account:
     """Encapsulates account configurations, state constraints, and balance updates.""" 
@@ -85,26 +88,6 @@ class Account:
         self._acc_status = value
 
     # --- BUSINESS CORE METHODS ---
-
-    def credit(self, amt: int) -> None:
-        """Increments account assets by a specified quantity.
-
-        Raises:
-            AccStatusError: If the underlying account status is currently inactive.
-        """
-        if self.acc_status == AccStat.INACTIVE.value:
-            raise InactiveAccountError("Transaction rejected: Cannot credit an inactive account.")
-        self.balance += amt
-
-    def debit(self, amt: int) -> None:
-        """Decrements account assets by a specified quantity.
-
-        Raises:
-            AccStatusError: If the account is inactive.
-        """
-        if self.acc_status == AccStat.INACTIVE.value:
-            raise InactiveAccountError("Transaction rejected: Cannot debit an inactive account.")
-
     
     def deactivate(self):
         """Attempts to change status to inactive if balance invariants allow.
@@ -122,4 +105,28 @@ class Account:
         """
         self.acc_status = AccStat.ACTIVE.value
 
-    
+    # --- FACTORY & SERIALIZATION ---
+
+    @classmethod
+    def from_dict(cls, data: AccDict) -> Self:
+        """Reconstructs a live Account object instance from a storage data map."""
+        timestamp = datetime.fromisoformat(data["created_at"])
+        instance = cls(
+            id=data["id"],
+            acc_name=data["acc_name"],
+            acc_type=data["acc_type"],
+            created_at=timestamp,
+        )
+        if "acc_status" in data:
+            instance.acc_status = data["acc_status"]
+        return instance
+
+    def to_dict(self) -> AccDict:
+        """Serializes current instance state into a plain dictionary data map."""
+        return {
+            "id": self.id,
+            "acc_name": self.acc_name,
+            "acc_type": self.acc_type,
+            "acc_status": self.acc_status,
+            "created_at": self.created_at.isoformat(),
+        }

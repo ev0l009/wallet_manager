@@ -21,7 +21,7 @@ from models.enums import (
     AccStat
 )
 
-# from file_manager.storage import Storage
+from file_manager.storage import save_wallet_data
 
 from utils.validators import (
     convert_to_kobo,
@@ -30,12 +30,13 @@ from utils.validators import (
 
 from exceptions.errors import (
     EntityNotFoundError, 
-    WalletError,
     InsufficientFundsError,
     InactiveAccountError,
     AccountBalanceNotZeroError,
     InvalidAccountIdError,
-    DuplicateAccountNameError
+    DuplicateAccountNameError,
+    InvalidReversalError,
+    TransactionAlreadyReversedError
 
 )
 
@@ -327,6 +328,84 @@ class WalletEngine:
         self.data = proposed_data
 
         return trx
+    
+    def get_transaction(self, trx_id: str) -> Transaction:
+        """Retrieve a transaction by its unique ID."""
+
+        for trx in self.data["transactions"]:
+            if trx.id == trx_id:
+                return trx
+
+        raise EntityNotFoundError(
+            f"Transaction '{trx_id}' does not exist."
+        )
+    
+    def record_reversal(
+        self,
+        original_trx_id: str,
+        inp_date: str
+    ) -> Transaction:
+        """Reverse an existing transaction."""
+
+        original = self.get_transaction(original_trx_id)
+
+        if original.transaction_type == TrxType.REVERSAL.value:
+            raise InvalidReversalError(
+                "A reversal transaction cannot itself be reversed."
+            )
+
+        already_reversed = any(
+            trx.transaction_type == TrxType.REVERSAL.value
+            and trx.reverses_transaction_id == original.id
+            for trx in self.data["transactions"]
+        )
+
+        if already_reversed:
+            raise TransactionAlreadyReversedError(
+                "This transaction has already been reversed."
+            )
+
+        valid_date = get_valid_date(inp_date)
+
+        affected_account_ids = {
+            original.source_acc_id,
+            original.target_acc_id,
+        } - {None}
+
+        for account_id in affected_account_ids:
+            account = self.get_account(account_id)
+
+            if account.acc_status != AccStat.ACTIVE.value:
+                raise InactiveAccountError(
+                    f"Cannot reverse transaction: account "
+                    f"'{account.acc_name}' is inactive."
+                )
+
+        reversal = Transaction(
+            id=self.generate_id(self.TRX_ID_PREFIX),
+            amount=original.amount,
+            source_acc_id=original.source_acc_id,
+            target_acc_id=original.target_acc_id,
+            transaction_date=valid_date,
+            transaction_type=TrxType.REVERSAL.value,
+            reverses_transaction_id=original.id,
+        )
+
+        proposed_transactions = (
+            self.data["transactions"] + [reversal]
+        )
+
+        self._validate_chronological_balances(
+            proposed_transactions
+        )
+
+        proposed_data = deepcopy(self.data)
+        proposed_data["transactions"].append(reversal)
+
+        # Persist before committing the in-memory state.
+        self.data = proposed_data
+
+        return reversal
 
     def reactivate_acc(self, acc_id: str) -> Account:
         """Reactivate an inactive account."""
@@ -446,3 +525,7 @@ class WalletEngine:
                     )
 
                 balances[trx.target_acc_id] += trx.amount
+
+    def save(self) -> None:
+        """Serializes and saves live records to external JSON storage file pools."""
+        save_wallet_data(self.data)

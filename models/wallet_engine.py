@@ -33,7 +33,10 @@ from exceptions.errors import (
     WalletError,
     InsufficientFundsError,
     InactiveAccountError,
-    AccountBalanceNotZeroError
+    AccountBalanceNotZeroError,
+    InvalidAccountIdError,
+    DuplicateAccountNameError
+
 )
 
 class WalletEngine:
@@ -70,86 +73,54 @@ class WalletEngine:
     #     self.storage.save(self.data)
 
     def generate_id(self, prefix: str) -> str:
-        """Generate a unique identifier for an account or transaction.
+        """Generate a unique identifier for an account or transaction."""
 
-        IDs are generated using a cryptographically secure random
-        character pool. Existing records are checked to prevent collisions.
+        if prefix not in {self.ACC_ID_PREFIX, self.TRX_ID_PREFIX}:
+            raise InvalidAccountIdError(f"Unsupported identifier prefix: {prefix}")
 
-        Args:
-            prefix: Identifier prefix, such as 'acc' or 'trx'.
-
-        Returns:
-            A unique prefixed identifier.
-        """
-        
         pool = string.ascii_letters + string.digits
 
         while True:
-            suffix = "".join(
-                secrets.choice(pool) for _ in range(5)
-            )
-            gen_id= f"{prefix}_{suffix}"
+            suffix = "".join(secrets.choice(pool) for _ in range(5))
+            generated_id = f"{prefix}_{suffix}"
 
             if prefix == self.ACC_ID_PREFIX:
-                if gen_id not in self.data["accounts"]:
-                    return gen_id
+                if generated_id not in self.data["accounts"]:
+                    return generated_id
 
-            elif prefix == self.TRX_ID_PREFIX:
-                if not any(
-                    trx.id == gen_id
-                    for trx in self.data["transactions"]
-                ):
-                    return gen_id
+            elif not any(
+                trx.id == generated_id
+                for trx in self.data["transactions"]
+            ):
+                return generated_id
 
-            else:
-                raise ValueError(
-                    f"Unsupported identifier prefix: {prefix}"
+    def create_account(self, acc_name: str, acc_type: str) -> Account:
+        """Create and register a new account."""
+
+        normalized_name = acc_name.strip().casefold()
+
+        for account in self.data["accounts"].values():
+            if account.acc_name.casefold() == normalized_name:
+                raise DuplicateAccountNameError(
+                    f"An account named '{acc_name}' already exists."
                 )
 
-    def create_account(self, acc_name: str, acc_type: str) -> None:
-        """Guide account creation and persist the resulting account.
-
-        New accounts always begin with zero Kobo and ACTIVE status.
-        Account-name uniqueness is checked against active and inactive
-        accounts.
-
-        Returns:
-            Account: The newly created account.
-            None: If user input validation fails.
-        """
-
-        # Generate a system-controlled account identifier.
-        account_id = self.generate_id("acc")
-
-        # Construct the account with its mandatory initial state.
         new_account = Account(
-            id=account_id,
+            id=self.generate_id(self.ACC_ID_PREFIX),
             acc_name=acc_name,
             acc_type=acc_type,
         )
 
-        # Prepare an isolated proposed application state.
         proposed_data = deepcopy(self.data)
+        proposed_data["accounts"][new_account.id] = new_account
 
-        proposed_data["accounts"][account_id] = new_account
-
-        # Persist before committing the new in-memory state.
-        # self.storage.save(proposed_data)
-
+        # Persistence will happen here before the in-memory commit.
         self.data = proposed_data
 
+        return new_account
+    
     def get_account(self, account_id: str) -> Account:
-        """Retrieve an account using its unique identifier.
-
-        Args:
-            account_id: System-generated account identifier.
-
-        Returns:
-            The requested Account entity.
-
-        Raises:
-            EntityNotFoundError: If the account does not exist.
-        """
+        """Retrieve an account by ID."""
 
         account = self.data["accounts"].get(account_id)
 
@@ -159,71 +130,106 @@ class WalletEngine:
             )
 
         return account
-
+    
     def get_active_accounts(self) -> list[Account]:
-        """Return all accounts currently marked as ACTIVE."""
+        """Return all active accounts."""
 
         return [
             account
             for account in self.data["accounts"].values()
             if account.acc_status == AccStat.ACTIVE.value
         ]
+    
+    def _get_active_account(self, acc_id: str) -> Account:
+        """Retrieve an account and ensure it is active."""
+
+        account = self.get_account(acc_id)
+
+        if account.acc_status != AccStat.ACTIVE.value:
+            raise InactiveAccountError(
+                f"Account '{acc_id}' is inactive."
+            )
+
+        return account
 
     def get_inactive_accounts(self) -> list[Account]:
-        """Return all accounts currently marked as INACTIVE."""
+        """Return all inactive accounts."""
 
         return [
             account
             for account in self.data["accounts"].values()
-            if account.acc_status == AccStat.ACTIVE.value
+            if account.acc_status == AccStat.INACTIVE.value
         ]
 
-    def get_active_acc_map(self) -> dict [str, str]:
+    def get_active_acc_map(self) -> dict[str, str]:
+        """Return active account IDs mapped to account names."""
 
         return {
-            acc.id: acc.acc_name
-            for acc in self.data["accounts"].values()
-            if acc.acc_status == AccStat.ACTIVE.value
+            account.id: account.acc_name
+            for account in self.get_active_accounts()
         }
 
-    def get_inactive_acc_map(self) -> dict [str, str]:
-    
+    def get_inactive_acc_map(self) -> dict[str, str]:
+        """Return inactive account IDs mapped to account names."""
+
         return {
-            acc.id: acc.acc_name
-            for acc in self.data["accounts"].values()
-            if acc.acc_status == AccStat.INACTIVE.value
+            account.id: account.acc_name
+            for account in self.get_inactive_accounts()
         }
-    
-    def get_acc_bal(self, acc_id: str) -> int:
-        acc_income = sum([
-            trx.amount
+
+    def get_transactions(self) -> list[Transaction]:
+        """Return the complete transaction history, including reversals."""
+        return self.data["transactions"].copy()
+
+
+    def get_effective_transactions(self) -> list[Transaction]:
+        """Return transactions whose financial effects remain valid."""
+
+        reversed_transaction_ids = {
+            trx.reverses_transaction_id
             for trx in self.data["transactions"]
             if (
-                trx.transaction_type == TrxType.DEPOSIT.value and
-                trx.target_acc_id == acc_id
-            ) 
-        ])
+                trx.transaction_type == TrxType.REVERSAL.value
+                and trx.reverses_transaction_id is not None
+            )
+        }
 
-        acc_expense = sum([
-            trx.amount
-            for trx in self.data["transactions"]
-            if (
-                trx.transaction_type == TrxType.WITHDRAW.value and
-                trx.source_acc_id == acc_id
-            ) 
-        ])
-
-        return acc_income - acc_expense
-
-    def reactivate_acc(self, acc_id: str):
-        self.data["accounts"][acc_id].reactivate()
-
-    def get_transactions(self):
         return [
             trx
             for trx in self.data["transactions"]
-            if (trx.transaction_type != TrxType.REVERSAL.value)
+            if (
+                trx.transaction_type != TrxType.REVERSAL.value
+                and trx.id not in reversed_transaction_ids
+            )
         ]
+
+
+    def get_acc_bal(self, acc_id: str) -> int:
+        """Calculate an account's current balance from effective history."""
+
+        self.get_account(acc_id)
+
+        balance = 0
+
+        for trx in self.get_effective_transactions():
+
+            if trx.transaction_type == TrxType.DEPOSIT.value:
+                if trx.target_acc_id == acc_id:
+                    balance += trx.amount
+
+            elif trx.transaction_type == TrxType.WITHDRAW.value:
+                if trx.source_acc_id == acc_id:
+                    balance -= trx.amount
+
+            elif trx.transaction_type == TrxType.TRANSFER.value:
+                if trx.source_acc_id == acc_id:
+                    balance -= trx.amount
+
+                if trx.target_acc_id == acc_id:
+                    balance += trx.amount
+
+        return balance
+    
 
     def record_transfer(
         self,
@@ -231,42 +237,38 @@ class WalletEngine:
         inp_amt: str,
         target_acc_id: str,
         inp_date: str
-    ):
-        try:
-            if source_acc_id not in self.data["accounts"]:
-                raise EntityNotFoundError()
-            source_acc_bal = self.get_acc_bal(source_acc_id)
+    ) -> Transaction:
+        """Transfer funds between two accounts."""
 
-            int_amt = convert_to_kobo(inp_amt)
+        self._get_active_account(source_acc_id)
+        self._get_active_account(target_acc_id)
 
-            if int_amt > source_acc_bal:
-                raise InsufficientFundsError()
-            
-            if target_acc_id not in self.data["accounts"]:
-                raise EntityNotFoundError()
-            valid_date = get_valid_date(inp_date)
-            trx = Transaction(
-                id=self.generate_id(self.TRX_ID_PREFIX),
-                amount=int_amt,
-                source_acc_id=source_acc_id,
-                target_acc_id=target_acc_id,
-                transaction_date=valid_date,
-                transaction_type=TrxType.TRANSFER.value
+        int_amt = convert_to_kobo(inp_amt)
+        valid_date = get_valid_date(inp_date)
+
+        trx = Transaction(
+            id=self.generate_id(self.TRX_ID_PREFIX),
+            amount=int_amt,
+            source_acc_id=source_acc_id,
+            target_acc_id=target_acc_id,
+            transaction_date=valid_date,
+            transaction_type=TrxType.TRANSFER.value,
+        )
+
+        source_balance = self.get_acc_bal(source_acc_id)
+
+        if int_amt > source_balance:
+            raise InsufficientFundsError(
+                "Insufficient funds for this transfer."
             )
-        except WalletError:
-            raise
-        
-        # Prepare an isolated proposed application state.
+
         proposed_data = deepcopy(self.data)
-
         proposed_data["transactions"].append(trx)
-        proposed_data["accounts"][source_acc_id].debit(int_amt)
-        proposed_data["accounts"][target_acc_id].credit(int_amt)
 
-        # Persist before committing the new in-memory state.
-        # self.storage.save(proposed_data)
-
+        # Persist before committing the in-memory state.
         self.data = proposed_data
+
+        return trx
 
     def record_income(
         self,
@@ -274,33 +276,30 @@ class WalletEngine:
         amount: str,
         desc: str,
         inp_date: str
-    ):
+    ) -> Transaction:
+        """Record a deposit into an account."""
 
-        try:
-            if acc_id not in self.data["accounts"]:
-                raise EntityNotFoundError()
+        self._get_active_account(acc_id)
 
-            int_amt = convert_to_kobo(amount)
+        int_amt = convert_to_kobo(amount)
+        valid_date = get_valid_date(inp_date)
 
-            valid_date = get_valid_date(inp_date)
-
-            trx = Transaction(
-                id=self.generate_id(self.TRX_ID_PREFIX),
-                amount=int_amt,
-                target_acc_id=acc_id,
-                desc=desc,
-                transaction_date=valid_date,
-                transaction_type=TrxType.DEPOSIT.value
-            )
-        except WalletError:
-            raise
+        trx = Transaction(
+            id=self.generate_id(self.TRX_ID_PREFIX),
+            amount=int_amt,
+            target_acc_id=acc_id,
+            desc=desc,
+            transaction_date=valid_date,
+            transaction_type=TrxType.DEPOSIT.value,
+        )
 
         proposed_data = deepcopy(self.data)
-
         proposed_data["transactions"].append(trx)
-        proposed_data["accounts"][acc_id].credit(int_amt)
 
+        # Persist before committing the in-memory state.
         self.data = proposed_data
+
+        return trx
 
     def record_expense(
         self,
@@ -309,45 +308,72 @@ class WalletEngine:
         exp_cat: str,
         desc: str,
         inp_date: str
-    ):
+    ) -> Transaction:
+        """Record a withdrawal from an account."""
 
-        try:
-            if acc_id not in self.data["accounts"]:
-                raise EntityNotFoundError()
+        self._get_active_account(acc_id)
 
-            int_amt = convert_to_kobo(amount)
+        int_amt = convert_to_kobo(amount)
+        valid_date = get_valid_date(inp_date)
 
-            valid_date = get_valid_date(inp_date)
+        current_balance = self.get_acc_bal(acc_id)
 
-            trx = Transaction(
-                id=self.generate_id(self.TRX_ID_PREFIX),
-                amount=int_amt,
-                category=exp_cat,
-                source_acc_id=acc_id,
-                desc=desc,
-                transaction_date=valid_date,
-                transaction_type=TrxType.DEPOSIT.value
+        if int_amt > current_balance:
+            raise InsufficientFundsError(
+                "Insufficient funds for this withdrawal."
             )
-        except WalletError:
-            raise
+
+        trx = Transaction(
+            id=self.generate_id(self.TRX_ID_PREFIX),
+            amount=int_amt,
+            category=exp_cat,
+            source_acc_id=acc_id,
+            desc=desc,
+            transaction_date=valid_date,
+            transaction_type=TrxType.WITHDRAW.value,
+        )
 
         proposed_data = deepcopy(self.data)
-
         proposed_data["transactions"].append(trx)
-        proposed_data["accounts"][acc_id].debit(int_amt)
 
+        # Persist before committing the in-memory state.
         self.data = proposed_data
 
-    def deactivate_acc(self, acc_id: str):
-        active_accounts = self.get_active_acc_map()
-        if acc_id not in active_accounts:
-            raise InactiveAccountError()
-        acc_bal = self.get_acc_bal(acc_id)
-        if acc_bal > 0:
-            raise AccountBalanceNotZeroError()
-        
+        return trx
+
+    def reactivate_acc(self, acc_id: str) -> Account:
+        """Reactivate an inactive account."""
+
+        self.get_account(acc_id)
+
         proposed_data = deepcopy(self.data)
+        account = proposed_data["accounts"][acc_id]
 
-        proposed_data["accounts"][acc_id].deactivate()
+        account.reactivate()
 
+        # Persistence will happen here before the in-memory commit.
         self.data = proposed_data
+
+        return account
+
+    def deactivate_acc(self, acc_id: str) -> Account:
+        """Deactivate an account with a zero balance."""
+
+        self.get_account(acc_id)
+
+        acc_bal = self.get_acc_bal(acc_id)
+
+        if acc_bal != 0:
+            raise AccountBalanceNotZeroError(
+                "An account must have a zero balance before deactivation."
+            )
+
+        proposed_data = deepcopy(self.data)
+        account = proposed_data["accounts"][acc_id]
+
+        account.deactivate()
+
+        # Persistence will happen here before the in-memory commit.
+        self.data = proposed_data
+
+        return account

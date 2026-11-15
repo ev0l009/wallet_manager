@@ -182,28 +182,6 @@ class WalletEngine:
         return self.data["transactions"].copy()
 
 
-    def get_effective_transactions(self) -> list[Transaction]:
-        """Return transactions whose financial effects remain valid."""
-
-        reversed_transaction_ids = {
-            trx.reverses_transaction_id
-            for trx in self.data["transactions"]
-            if (
-                trx.transaction_type == TrxType.REVERSAL.value
-                and trx.reverses_transaction_id is not None
-            )
-        }
-
-        return [
-            trx
-            for trx in self.data["transactions"]
-            if (
-                trx.transaction_type != TrxType.REVERSAL.value
-                and trx.id not in reversed_transaction_ids
-            )
-        ]
-
-
     def get_acc_bal(self, acc_id: str) -> int:
         """Calculate an account's current balance from effective history."""
 

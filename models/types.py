@@ -36,3 +36,17 @@ class AccDict(TypedDict):
     acc_type: str
     acc_status: str
     created_at: str
+
+
+class WalletManagerData(TypedDict):
+    """In-memory core application data map."""
+
+    accounts: dict[str, Account]
+    transactions: list[Transaction]
+
+
+class JSONData(TypedDict):
+    """Serialized storage map matching the final output JSON structure."""
+
+    accounts: dict[str, AccDict]
+    transactions: list[TrxDict]

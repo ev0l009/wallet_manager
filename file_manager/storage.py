@@ -11,7 +11,11 @@ import os
 from pathlib import Path
 
 from models.account import Account
-from models.types import JsonTrackerData, TrackerData, TrxType
+from models.transaction import Transaction
+from models.types import (
+    JSONData,
+    WalletManagerData
+)
 
 # Resolution of relative project paths
 DB_DIR = Path(__file__).resolve().parent.parent.parent / "db"
@@ -23,14 +27,14 @@ def initialize() -> None:
     DB_DIR.mkdir(exist_ok=True, parents=True)
 
  
-def save_wallet_data(tracker_data: TrackerData) -> None:
+def save_wallet_data(tracker_data: WalletManagerData) -> None:
     """Serializes in-memory tracker state and saves it atomically to a JSON file.
 
     Transforms Account objects into dictionaries and datetime objects into 
     ISO 8601 strings. Uses a temporary file staging technique to guarantee 
     file integrity.
     """
-    serialized_data: JsonTrackerData = {
+    serialized_data: JSONData = {
         "accounts": {},
         "transactions": []
     }
@@ -45,7 +49,7 @@ def save_wallet_data(tracker_data: TrackerData) -> None:
         timestamp = trx_dict.get("timestamp")
         
         if isinstance(timestamp, datetime):
-            trx_dict["timestamp"] = timestamp.isoformat()
+            trx_dict["transaction_date"] = timestamp.isoformat()
             
         serialized_data["transactions"].append(trx_dict)
 
@@ -68,7 +72,7 @@ def save_wallet_data(tracker_data: TrackerData) -> None:
             temp_file_path.unlink()
 
 
-def load_tracker_data() -> TrackerData:
+def load_tracker_data() -> WalletManagerData:
     """Loads and deserializes structural records from the primary JSON data file.
 
     Reconstructs Python datetime objects and parses stored dictionaries back 
@@ -77,7 +81,7 @@ def load_tracker_data() -> TrackerData:
     Returns:
         TrackerData: An in-memory application dictionary populated with records.
     """
-    deserialized_data: TrackerData = {
+    deserialized_data: WalletManagerData = {
         "accounts": {},
         "transactions": []
     }
@@ -108,11 +112,10 @@ def load_tracker_data() -> TrackerData:
             acc_copy["created_at"] = datetime.fromisoformat(created_at)
 
         deserialized_data["accounts"][acc_id] = Account(
-            acc_id,
-            acc_copy["acc_name"],
-            acc_copy["acc_type"],
-            acc_copy["balance"],
-            acc_copy["created_at"]
+            id=acc_id,
+            acc_name=acc_copy["acc_name"],
+            acc_type=acc_copy["acc_type"],
+            created_at=acc_copy["created_at"]
         )
 
     # Rehydrate transaction timestamps back to datetime objects
@@ -123,36 +126,19 @@ def load_tracker_data() -> TrackerData:
 
         if isinstance(timestamp, str):
             trx_copy["timestamp"] = datetime.fromisoformat(timestamp)
-
-        if trx_type == TrxType.DEPOSIT.value:
-            trx_obj = DepositTrx(
-                id=trx_copy["id"],
-                acc_id=trx_copy["acc_id"],
-                amount=trx_copy["amount"],
-                transaction_type=TrxType.DEPOSIT.value,
-                timestamp=timestamp
-            )
-            deserialized_data["transactions"].append(trx_obj)
-        elif trx_type == TrxType.TRANSFER.value:
-            trx_obj = TransferTrx(
-                id=trx_copy["id"],
-                amount=trx_copy["amount"],
-                timestamp=timestamp,
-                source_acc_id=trx_copy["source_acc_id"],
-                target_acc_id=trx_copy["target_acc_id"],
-                transaction_type= TrxType.TRANSFER.value
-            )
-            deserialized_data["transactions"].append(trx_obj)
-        elif trx_type == TrxType.WITHDRAW.value:
-            trx_obj = WithdrawalTrx(
-                id=trx_copy["id"],
-                amount=trx_copy["amount"],
-                timestamp=timestamp,
-                acc_id=trx_copy["acc_id"],
-                category=trx_copy["category"],
-                transaction_type= TrxType.WITHDRAW.value
-            )
-            deserialized_data["transactions"].append(trx_obj)
+            
+        trx_obj = Transaction(
+            id=trx_copy["id"],
+            amount=trx_copy["amount"],
+            transaction_date=trx_copy["transaction_date"],
+            transaction_type=trx_copy["transaction_type"],
+            category=trx_copy["category"],
+            desc=trx_copy["desc"],
+            source_acc_id=trx_copy["source_acc_id"],
+            target_acc_id=trx_copy["target_acc_id"],
+            reverses_transaction_id=trx_copy["reverses_transaction_id"]
+        )
+        deserialized_data["transactions"].append(trx_obj)
 
     print("\n  [✓] Session data loaded successfully.")
     return deserialized_data

@@ -255,12 +255,13 @@ class WalletEngine:
             transaction_type=TrxType.TRANSFER.value,
         )
 
-        source_balance = self.get_acc_bal(source_acc_id)
+        proposed_transactions = (
+            self.data["transactions"] + [trx]
+        )
 
-        if int_amt > source_balance:
-            raise InsufficientFundsError(
-                "Insufficient funds for this transfer."
-            )
+        self._validate_chronological_balances(
+            proposed_transactions
+        )
 
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
@@ -293,6 +294,14 @@ class WalletEngine:
             transaction_type=TrxType.DEPOSIT.value,
         )
 
+        proposed_transactions = (
+            self.data["transactions"] + [trx]
+        )
+
+        self._validate_chronological_balances(
+            proposed_transactions
+        )
+
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
@@ -309,19 +318,11 @@ class WalletEngine:
         desc: str,
         inp_date: str
     ) -> Transaction:
-        """Record a withdrawal from an account."""
 
         self._get_active_account(acc_id)
 
         int_amt = convert_to_kobo(amount)
         valid_date = get_valid_date(inp_date)
-
-        current_balance = self.get_acc_bal(acc_id)
-
-        if int_amt > current_balance:
-            raise InsufficientFundsError(
-                "Insufficient funds for this withdrawal."
-            )
 
         trx = Transaction(
             id=self.generate_id(self.TRX_ID_PREFIX),
@@ -333,10 +334,18 @@ class WalletEngine:
             transaction_type=TrxType.WITHDRAW.value,
         )
 
+        proposed_transactions = (
+            self.data["transactions"] + [trx]
+        )
+
+        self._validate_chronological_balances(
+            proposed_transactions
+        )
+
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        # Persist before committing the in-memory state.
+        # Save proposed_data through storage before this assignment.
         self.data = proposed_data
 
         return trx
@@ -377,3 +386,85 @@ class WalletEngine:
         self.data = proposed_data
 
         return account
+
+    @staticmethod
+    def _build_effective_transactions(
+        transactions: list[Transaction]
+    ) -> list[Transaction]:
+        """Build effective history from a supplied transaction collection."""
+
+        reversed_ids = {
+            trx.reverses_transaction_id
+            for trx in transactions
+            if (
+                trx.transaction_type == TrxType.REVERSAL.value
+                and trx.reverses_transaction_id is not None
+            )
+        }
+
+        return [
+            trx
+            for trx in transactions
+            if (
+                trx.transaction_type != TrxType.REVERSAL.value
+                and trx.id not in reversed_ids
+            )
+        ]
+
+
+    def get_effective_transactions(self) -> list[Transaction]:
+        """Return transactions whose financial effects remain valid."""
+
+        return self._build_effective_transactions(
+            self.data["transactions"]
+        )
+
+
+    def _validate_chronological_balances(
+        self,
+        transactions: list[Transaction]
+    ) -> None:
+        """Ensure no account has a negative balance at any point in history."""
+
+        effective_transactions = self._build_effective_transactions(
+            transactions
+        )
+
+        # Python's sort is stable, so transactions sharing a date retain
+        # their original insertion order.
+        ordered_transactions = sorted(
+            effective_transactions,
+            key=lambda trx: trx.transaction_date
+        )
+
+        balances = {
+            acc_id: 0
+            for acc_id in self.data["accounts"]
+        }
+
+        for trx in ordered_transactions:
+
+            if trx.transaction_type == TrxType.DEPOSIT.value:
+                balances[trx.target_acc_id] += trx.amount
+
+            elif trx.transaction_type == TrxType.WITHDRAW.value:
+                balances[trx.source_acc_id] -= trx.amount
+
+                if balances[trx.source_acc_id] < 0:
+                    raise InsufficientFundsError(
+                        f"Transaction '{trx.id}' creates a negative "
+                        f"historical balance for account "
+                        f"'{trx.source_acc_id}'."
+                    )
+
+            elif trx.transaction_type == TrxType.TRANSFER.value:
+                balances[trx.source_acc_id] -= trx.amount
+
+                if balances[trx.source_acc_id] < 0:
+                    raise InsufficientFundsError(
+                        f"Transfer '{trx.id}' creates a negative "
+                        f"historical balance for account "
+                        f"'{trx.source_acc_id}'."
+                    )
+
+                balances[trx.target_acc_id] += trx.amount

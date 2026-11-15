@@ -21,7 +21,11 @@ from models.enums import (
     AccStat
 )
 
-from file_manager.storage import save_wallet_data
+from file_manager.storage import (
+    save_app_data,
+    load_app_data
+)
+ 
 
 from utils.validators import (
     convert_to_kobo,
@@ -502,12 +506,12 @@ class WalletEngine:
         for trx in ordered_transactions:
 
             if trx.transaction_type == TrxType.DEPOSIT.value:
-                balances[trx.target_acc_id] += trx.amount
+                balances[trx.target_acc_id] += trx.amount #type: ignore
 
             elif trx.transaction_type == TrxType.WITHDRAW.value:
-                balances[trx.source_acc_id] -= trx.amount
+                balances[trx.source_acc_id] -= trx.amount #type: ignore
 
-                if balances[trx.source_acc_id] < 0:
+                if balances[trx.source_acc_id] < 0: #type: ignore
                     raise InsufficientFundsError(
                         f"Transaction '{trx.id}' creates a negative "
                         f"historical balance for account "
@@ -515,17 +519,21 @@ class WalletEngine:
                     )
 
             elif trx.transaction_type == TrxType.TRANSFER.value:
-                balances[trx.source_acc_id] -= trx.amount
+                balances[trx.source_acc_id] -= trx.amount #type: ignore
 
-                if balances[trx.source_acc_id] < 0:
+                if balances[trx.source_acc_id] < 0: #type: ignore
                     raise InsufficientFundsError(
                         f"Transfer '{trx.id}' creates a negative "
                         f"historical balance for account "
                         f"'{trx.source_acc_id}'."
                     )
 
-                balances[trx.target_acc_id] += trx.amount
+                balances[trx.target_acc_id] += trx.amount #type: ignore
 
     def save(self) -> None:
         """Serializes and saves live records to external JSON storage file pools."""
-        save_wallet_data(self.data)
+        save_app_data(self.data)
+
+    def load(self) -> None:
+        """Hydrates the application layer using files retrieved from storage layers."""
+        self.data = load_app_data()

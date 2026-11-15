@@ -27,7 +27,7 @@ def initialize() -> None:
     DB_DIR.mkdir(exist_ok=True, parents=True)
 
  
-def save_wallet_data(tracker_data: WalletManagerData) -> None:
+def save_app_data(tracker_data: WalletManagerData) -> None:
     """Serializes in-memory tracker state and saves it atomically to a JSON file.
 
     Transforms Account objects into dictionaries and datetime objects into 
@@ -72,7 +72,7 @@ def save_wallet_data(tracker_data: WalletManagerData) -> None:
             temp_file_path.unlink()
 
 
-def load_tracker_data() -> WalletManagerData:
+def load_app_data() -> WalletManagerData:
     """Loads and deserializes structural records from the primary JSON data file.
 
     Reconstructs Python datetime objects and parses stored dictionaries back 
@@ -126,7 +126,7 @@ def load_tracker_data() -> WalletManagerData:
 
         if isinstance(timestamp, str):
             trx_copy["timestamp"] = datetime.fromisoformat(timestamp)
-            
+
         trx_obj = Transaction(
             id=trx_copy["id"],
             amount=trx_copy["amount"],

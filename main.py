@@ -8,7 +8,7 @@ Unexpected runtime exceptions are captured at the application boundary and recor
 
 import sys
 
-from models.wallet_engine import WalletEngine
+from services.wallet_engine import WalletEngine
 from ui.menu_states import MenuState 
 from ui.menus import (
     get_main_menu_state,

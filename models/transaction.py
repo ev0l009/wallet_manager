@@ -1,4 +1,3 @@
-
 """Transaction domain model for the Finance Tracker application.
 
 Defines immutable financial transaction records and validates

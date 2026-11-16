@@ -3,10 +3,12 @@ from typing import TYPE_CHECKING
 
 from models.enums import TrxType
 
+from models.types import FundedAccDict
+
 if TYPE_CHECKING:
      from models.transaction import Transaction
 
-def display_active_accounts(funded_active_accounts: list[dict[str, str | object | int]]) -> None:
+def display_active_accounts(funded_active_accounts: list [ FundedAccDict ]) -> None:
         """Renders a formatted text grid table displaying active accounts in memory."""
         print("\n  ACTIVE ACCOUNTS")
         print("  " + "—" * 58)

@@ -1,147 +1,164 @@
-"""Data persistence layer for the Finance Tracker application.
+"""Data persistence layer for the Wallet Manager application.
 
-Handles atomic serialization and deserialization of application data to and
-from a JSON storage file, converting between live Python objects/datetimes 
-and primitive JSON formats.
+Handles JSON serialization and deserialization of application data.
+Delegates entity reconstruction to the domain models and uses atomic
+file replacement when saving application state.
 """
 
-from datetime import datetime
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 from models.account import Account
 from models.transaction import Transaction
-from models.types import (
-    JSONData,
-    WalletEngineData
+from models.types import JSONData, WalletEngineData
+
+from exceptions.errors import (
+    StorageCorruptedError,
+    PersistenceError,
 )
 
-from datetime import date
 
-from exceptions.errors import PersistenceError
-
-# Resolution of relative project paths
+# Resolve the database directory relative to the project root.
 DB_DIR = Path(__file__).resolve().parent.parent / "db"
 FILE_PATH = DB_DIR / "data.json"
 
 
 def initialize() -> None:
-    """Creates the database directory if it does not already exist."""
-    DB_DIR.mkdir(exist_ok=True, parents=True)
+    """Create the database directory if it does not exist."""
 
- 
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def save_app_data(tracker_data: WalletEngineData) -> None:
-    """Serializes in-memory tracker state and saves it atomically to a JSON file.
+    """Serialize and atomically persist the application state."""
 
-    Transforms Account objects into dictionaries and datetime objects into 
-    ISO 8601 strings. Uses a temporary file staging technique to guarantee 
-    file integrity.
-    """
     serialized_data: JSONData = {
         "accounts": {},
-        "transactions": []
+        "transactions": [],
     }
 
-    # Transform live Account objects into plain dictionaries
-    for acc_id, acc in tracker_data.get("accounts", {}).items():
-        serialized_data["accounts"][acc_id] = acc.to_dict()
-
-    # Normalize transaction timestamps to ISO strings
-    for trx in tracker_data.get("transactions", []):
-        serialized_data["transactions"].append(trx.to_dict())
-
-    temp_file_path = FILE_PATH.with_suffix(".json.tmp")
-
     try:
-        # Guarantee parent directory exists before attempting write
+        # Delegate entity serialization to the models.
+        for acc_id, account in tracker_data["accounts"].items():
+            serialized_data["accounts"][acc_id] = account.to_dict()
+
+        for transaction in tracker_data["transactions"]:
+            serialized_data["transactions"].append(
+                transaction.to_dict()
+            )
+
         initialize()
-        
-        with open(temp_file_path, "w", encoding="utf-8") as file:
-            json.dump(serialized_data, file, indent=4)
-            
-        # Atomic replacement swaps temporary file to target filename
-        os.replace(temp_file_path, FILE_PATH)
-        print("\n  [✓] Session saved successfully.\n")
+
+        temp_file_path = FILE_PATH.with_suffix(".json.tmp")
+
+        try:
+            with open(temp_file_path, "w", encoding="utf-8") as file:
+                json.dump(
+                    serialized_data,
+                    file,
+                    indent=4,
+                    ensure_ascii=False,
+                )
+                file.flush()
+                os.fsync(file.fileno())
+
+            # Replace the previous file only after writing succeeds.
+            os.replace(temp_file_path, FILE_PATH)
+
+        finally:
+            # Remove an incomplete temporary file if one remains.
+            if temp_file_path.exists():
+                temp_file_path.unlink()
 
     except Exception as err:
-        if temp_file_path.exists():
-            temp_file_path.unlink()
-
         raise PersistenceError(
             "Unable to save application data."
         ) from err
 
 
 def load_app_data() -> WalletEngineData:
-    """Loads and deserializes structural records from the primary JSON data file.
+    """Load application data and reconstruct domain entities."""
 
-    Reconstructs Python datetime objects and parses stored dictionaries back 
-    into standard Account model instances.
-
-    Returns:
-        TrackerData: An in-memory application dictionary populated with records.
-    """
-    deserialized_data: WalletEngineData = {
+    empty_data: WalletEngineData = {
         "accounts": {},
-        "transactions": []
+        "transactions": [],
     }
 
     try:
         with open(FILE_PATH, "r", encoding="utf-8") as file:
-            raw_data = json.load(file)
-            
-    except FileNotFoundError:
-        print("\n  [i] No saved sessions found. Initializing new ledger...")
-        initialize()
-        return deserialized_data
+            raw_data: Any = json.load(file)
 
-    except json.JSONDecodeError:
-        print("\n  [!] Alert: Data file is corrupted. Initializing a clean session...\n")
-        return deserialized_data
+    except FileNotFoundError:
+        # A missing file represents a new application installation.
+        try:
+            initialize()
+        except OSError as err:
+            raise PersistenceError(
+                "Unable to initialize the database directory."
+            ) from err
+
+        return empty_data
+
+    except json.JSONDecodeError as err:
+        raise StorageCorruptedError(
+            "The application data file contains invalid JSON."
+        ) from err
+
+    except (OSError, UnicodeDecodeError) as err:
+        raise PersistenceError(
+            "Unable to read application data."
+        ) from err
+
+    try:
+        if not isinstance(raw_data, dict):
+            raise ValueError("The root JSON value must be an object.")
+
+        raw_accounts = raw_data.get("accounts")
+        raw_transactions = raw_data.get("transactions")
+
+        if not isinstance(raw_accounts, dict):
+            raise ValueError("'accounts' must be a JSON object.")
+
+        if not isinstance(raw_transactions, list):
+            raise ValueError("'transactions' must be a JSON array.")
+
+        loaded_data: WalletEngineData = {
+            "accounts": {},
+            "transactions": [],
+        }
+
+        # Delegate account reconstruction to Account.from_dict().
+        for acc_id, account_data in raw_accounts.items():
+            if not isinstance(account_data, dict):
+                raise ValueError(
+                    f"Account '{acc_id}' must be a JSON object."
+                )
+
+            account = Account.from_dict(account_data)
+
+            if account.id != acc_id:
+                raise ValueError(
+                    f"Account ID mismatch for '{acc_id}'."
+                )
+
+            loaded_data["accounts"][acc_id] = account
+
+        # Delegate transaction reconstruction to Transaction.from_dict().
+        for transaction_data in raw_transactions:
+            if not isinstance(transaction_data, dict):
+                raise ValueError(
+                    "Each transaction must be a JSON object."
+                )
+
+            transaction = Transaction.from_dict(transaction_data)
+            loaded_data["transactions"].append(transaction)
+
+        return loaded_data
 
     except Exception as err:
-        print(f"\n  [!] Unexpected error loading session: {err}")
-        return deserialized_data
-
-    # Hydrate raw dictionary records back into native Python types
-    for acc_id, acc in raw_data.get("accounts", {}).items():
-        acc_copy = acc.copy()
-        created_at = acc_copy.get("created_at")
-
-        if isinstance(created_at, str):
-            acc_copy["created_at"] = datetime.fromisoformat(created_at)
-
-        deserialized_data["accounts"][acc_id] = Account(
-            id=acc_id,
-            acc_name=acc_copy["acc_name"],
-            acc_type=acc_copy["acc_type"],
-            acc_status=acc_copy["acc_status"],
-            created_at=acc_copy["created_at"]
-        )
-
-    # Rehydrate transaction timestamps back to datetime objects
-    for trx in raw_data.get("transactions", []):
-        trx_copy = trx.copy()
-        transaction_date = trx_copy.get("transaction_date")
-
-        if isinstance(transaction_date, str):
-            trx_copy["transaction_date"] = date.fromisoformat(
-                transaction_date
-            )
-
-        trx_obj = Transaction(
-            id=trx_copy["id"],
-            amount=trx_copy["amount"],
-            transaction_date=trx_copy["transaction_date"],
-            transaction_type=trx_copy["transaction_type"],
-            category=trx_copy["category"],
-            desc=trx_copy["desc"],
-            source_acc_id=trx_copy["source_acc_id"],
-            target_acc_id=trx_copy["target_acc_id"],
-            reverses_transaction_id=trx_copy["reverses_transaction_id"]
-        )
-        deserialized_data["transactions"].append(trx_obj)
-
-    print("\n  [✓] Session data loaded successfully.")
-    return deserialized_data
+        raise StorageCorruptedError(
+            "The application data file contains invalid or "
+            "inconsistent entity records."
+        ) from err

@@ -40,8 +40,8 @@ from exceptions.errors import (
     InvalidAccountIdError,
     DuplicateAccountNameError,
     InvalidReversalError,
-    TransactionAlreadyReversedError
-
+    TransactionAlreadyReversedError,
+    StorageCorruptedError
 )
 
 class WalletEngine:
@@ -51,7 +51,6 @@ class WalletEngine:
 
     def __init__(
         self, 
-        # storage: "Storage"
     ) -> None:
         """Initialize the wallet engine.
 
@@ -66,16 +65,6 @@ class WalletEngine:
             "accounts": {},
             "transactions": []
         }
-
-    # def load(self) -> None:
-    #     """Load persisted application data into active memory."""
-
-    #     self.data = self.storage.load()
-
-    # def save(self) -> None:
-    #     """Persist the current application state through the storage layer."""
-
-    #     self.storage.save(self.data)
 
     def generate_id(self, prefix: str) -> str:
         """Generate a unique identifier for an account or transaction."""
@@ -119,8 +108,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["accounts"][new_account.id] = new_account
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(new_account)
     
@@ -250,8 +238,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(trx)
 
@@ -289,8 +276,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(trx)
 
@@ -329,8 +315,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(trx)
 
-        # Save proposed_data through storage before this assignment.
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(trx)
     
@@ -407,8 +392,7 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         proposed_data["transactions"].append(reversal)
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(reversal)
 
@@ -434,8 +418,7 @@ class WalletEngine:
 
         account.reactivate()
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(account)
 
@@ -458,8 +441,7 @@ class WalletEngine:
 
         account.deactivate()
 
-        self.save()
-        self.data = proposed_data
+        self._commit(proposed_data)
 
         return deepcopy(account)
 
@@ -505,58 +487,152 @@ class WalletEngine:
 
 
     def _validate_chronological_balances(
-        self,
-        transactions: list[Transaction]
+    self,
+        transactions: list[Transaction],
+        accounts: dict[str, Account] | None = None,
     ) -> None:
         """Ensure no account has a negative balance at any point in history."""
+
+        if accounts is None:
+            accounts = self.data["accounts"]
 
         effective_transactions = self._build_effective_transactions(
             transactions
         )
 
-        # Python's sort is stable, so transactions sharing a date retain
-        # their original insertion order.
+        # Stable sorting preserves insertion order for transactions
+        # sharing the same transaction date.
         ordered_transactions = sorted(
             effective_transactions,
-            key=lambda trx: trx.transaction_date
+            key=lambda trx: trx.transaction_date,
         )
 
         balances = {
             acc_id: 0
-            for acc_id in self.data["accounts"]
+            for acc_id in accounts
         }
 
         for trx in ordered_transactions:
 
             if trx.transaction_type == TrxType.DEPOSIT.value:
-                balances[trx.target_acc_id] += trx.amount #type: ignore
+                target_id = trx.target_acc_id
+
+                if target_id not in balances:
+                    raise EntityNotFoundError(
+                        f"Transaction '{trx.id}' references an "
+                        f"unknown target account."
+                    )
+
+                balances[target_id] += trx.amount
 
             elif trx.transaction_type == TrxType.WITHDRAW.value:
-                balances[trx.source_acc_id] -= trx.amount #type: ignore
+                source_id = trx.source_acc_id
 
-                if balances[trx.source_acc_id] < 0: #type: ignore
+                if source_id not in balances:
+                    raise EntityNotFoundError(
+                        f"Transaction '{trx.id}' references an "
+                        f"unknown source account."
+                    )
+
+                balances[source_id] -= trx.amount
+
+                if balances[source_id] < 0:
                     raise InsufficientFundsError(
                         f"Transaction '{trx.id}' creates a negative "
-                        f"historical balance for account "
-                        f"'{trx.source_acc_id}'."
+                        f"historical balance for account '{source_id}'."
                     )
 
             elif trx.transaction_type == TrxType.TRANSFER.value:
-                balances[trx.source_acc_id] -= trx.amount #type: ignore
+                source_id = trx.source_acc_id
+                target_id = trx.target_acc_id
 
-                if balances[trx.source_acc_id] < 0: #type: ignore
-                    raise InsufficientFundsError(
-                        f"Transfer '{trx.id}' creates a negative "
-                        f"historical balance for account "
-                        f"'{trx.source_acc_id}'."
+                if source_id not in balances or target_id not in balances:
+                    raise EntityNotFoundError(
+                        f"Transfer '{trx.id}' references an "
+                        f"unknown account."
                     )
 
-                balances[trx.target_acc_id] += trx.amount #type: ignore
+                balances[source_id] -= trx.amount
 
-    def save(self) -> None:
-        """Serializes and saves live records to external JSON storage file pools."""
-        save_app_data(self.data)
+                if balances[source_id] < 0:
+                    raise InsufficientFundsError(
+                        f"Transfer '{trx.id}' creates a negative "
+                        f"historical balance for account '{source_id}'."
+                    )
+
+                balances[target_id] += trx.amount
+
+    def _validate_loaded_data(self, loaded_data: WalletEngineData) -> None:
+        """Validate cross-entity references and financial consistency."""
+
+        accounts = loaded_data["accounts"]
+        transactions = loaded_data["transactions"]
+
+        transaction_map: dict[str, Transaction] = {}
+
+        # Transaction IDs must be unique.
+        for trx in transactions:
+            if trx.id in transaction_map:
+                raise ValueError(
+                    f"Duplicate transaction ID: '{trx.id}'."
+                )
+
+            transaction_map[trx.id] = trx
+
+        # Validate reversal relationships.
+        reversed_ids: set[str] = set()
+
+        for trx in transactions:
+            if trx.transaction_type != TrxType.REVERSAL.value:
+                continue
+
+            original_id = trx.reverses_transaction_id
+
+            if original_id is None or original_id not in transaction_map:
+                raise ValueError(
+                    f"Reversal '{trx.id}' references a missing transaction."
+                )
+
+            original = transaction_map[original_id]
+
+            if original.transaction_type == TrxType.REVERSAL.value:
+                raise ValueError(
+                    f"Reversal '{trx.id}' attempts to reverse another reversal."
+                )
+
+            if original_id in reversed_ids:
+                raise ValueError(
+                    f"Transaction '{original_id}' has multiple reversals."
+                )
+
+            if (
+                trx.amount != original.amount
+                or trx.source_acc_id != original.source_acc_id
+                or trx.target_acc_id != original.target_acc_id
+            ):
+                raise ValueError(
+                    f"Reversal '{trx.id}' does not match its original transaction."
+                )
+
+            reversed_ids.add(original_id)
+
+        # Validate account references and chronological financial consistency.
+        self._validate_chronological_balances(
+            transactions,
+            accounts,
+        )
 
     def load(self) -> None:
-        """Hydrates the application layer using files retrieved from storage layers."""
-        self.data = load_app_data()
+        """Load and validate persisted application data."""
+
+        loaded_data = load_app_data()
+
+        try:
+            self._validate_loaded_data(loaded_data)
+
+        except Exception as err:
+            raise StorageCorruptedError(
+                "Persisted application data failed business validation."
+            ) from err
+
+        self.data = loaded_data

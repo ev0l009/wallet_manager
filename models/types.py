@@ -38,6 +38,16 @@ class AccDict(TypedDict):
     created_at: str
 
 
+class FundedAccDict(TypedDict):
+    """Serialization schema for individual accounts."""
+
+    id: str
+    acc_name: str
+    acc_type: str
+    acc_bal: str
+    acc_status: str
+    created_at: str
+
 
 class JSONData(TypedDict):
     """Serialized storage map matching the final output JSON structure."""

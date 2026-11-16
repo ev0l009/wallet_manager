@@ -1,0 +1,12 @@
+{
+    "accounts": {
+        "acc_Htz6a": {
+            "id": "acc_Htz6a",
+            "acc_name": "Bank",
+            "acc_type": "bank",
+            "acc_status": "active",
+            "created_at": "2026-11-16T09:32:22+00:00"
+        }
+    },
+    "transactions": []
+}

@@ -26,7 +26,7 @@ from ui.views import (
 )
 
 from ui.menu_states import AccDashState
-
+from models.types import FundedAccDict
 
 from exceptions.errors import WalletError
 
@@ -50,7 +50,7 @@ def wallet_runner() -> None:
 
     # Initialize the wallet engine and load persisted application data.
     wallet = WalletEngine()
-    # wallet.load()
+    wallet.load()
     acc_map = wallet.get_active_acc_map()
 
     # Start the application at the main dashboard.
@@ -79,8 +79,15 @@ def wallet_runner() -> None:
         elif current_state == MenuState.LIST_ACCOUNTS.value:
 
             active_accounts = wallet.get_active_accounts()
+            funded_active_accounts: list[FundedAccDict] = [
+                {
+                    **acc.to_dict(), 
+                    "acc_bal": wallet.get_acc_bal(acc.id)
+                }
+                for acc in active_accounts
+            ]
             
-            display_active_accounts(active_accounts)
+            display_active_accounts(funded_active_accounts)
 
             current_state = MenuState.DASHBOARD.value
 

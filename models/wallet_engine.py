@@ -133,6 +133,7 @@ class WalletEngine:
             if account.acc_status == AccStat.ACTIVE.value
         ]
     
+    
     def _get_active_account(self, acc_id: str) -> Account:
         """Retrieve an account and ensure it is active."""
 

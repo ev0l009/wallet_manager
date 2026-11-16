@@ -11,3 +11,13 @@ Traceback (most recent call last):
     "4": AccType.MOBILE_WALLET.value,
          ^^^^^^^^^^^^^^^^^^^^^
 AttributeError: type object 'AccType' has no attribute 'MOBILE_WALLET'
+2026-11-16 10:37:24 | ERROR | wallet_manager | Unexpected application failure.
+Traceback (most recent call last):
+  File "/home/student/wallet_manager/main.py", line 214, in <module>
+    wallet_runner()
+  File "/home/student/wallet_manager/main.py", line 83, in wallet_runner
+    display_active_accounts(active_accounts)
+  File "/home/student/wallet_manager/ui/views.py", line 30, in display_active_accounts
+    balance_str = f"${acc.balance:,.2f}"
+                      ^^^^^^^^^^^
+AttributeError: 'Account' object has no attribute 'balance'

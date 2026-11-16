@@ -3,33 +3,34 @@ from typing import TYPE_CHECKING
 
 from models.enums import TrxType
 
+from models.types import FundedAccDict
+
 if TYPE_CHECKING:
-     from models.account import Account
      from models.transaction import Transaction
 
-def display_active_accounts(active_accounts: list[ Account ]) -> None:
+def display_active_accounts(funded_active_accounts: list [ FundedAccDict ]) -> None:
         """Renders a formatted text grid table displaying active accounts in memory."""
         print("\n  ACTIVE ACCOUNTS")
         print("  " + "—" * 58)
         
-        if not active_accounts:
+        if not funded_active_accounts:
             print("  [i] There are no active accounts right now.\n")
             return
 
         print(f"  {'Account Name':<16} {'Account ID':<12} {'Type':<12} {'Balance':>12}")
         print("  " + "—" * 58)
         
-        for acc in active_accounts:
+        for acc in funded_active_accounts:
             # Prevent grid breakage by truncating names longer than 14 characters
-            if len(acc.acc_name) > 14:
-                name_trunc = f"{acc.acc_name.title()[:14]}.."
+            if len(acc["acc_name"]) > 14:
+                name_trunc = f"{acc["acc_name"].title()[:14]}.."
             else:
-                name_trunc = acc.acc_name.title()
+                name_trunc = acc["acc_name"].title()
                 
-            type_str = acc.acc_type.capitalize()
-            balance_str = f"${acc.balance:,.2f}"
+            type_str = acc["acc_type"].capitalize()
+            balance_str = f"${acc["acc_bal"]:,.2f}"
             
-            print(f"  {name_trunc:<16} {acc.id:<12} {type_str:<12} {balance_str:>12}")
+            print(f"  {name_trunc:<16} {acc["id"]:<12} {type_str:<12} {balance_str:>12}")
             
         print("  " + "—" * 58 + "\n")
 

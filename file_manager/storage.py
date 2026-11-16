@@ -17,8 +17,12 @@ from models.types import (
     WalletEngineData
 )
 
+from datetime import date
+
+from exceptions.errors import PersistenceError
+
 # Resolution of relative project paths
-DB_DIR = Path(__file__).resolve().parent.parent.parent / "db"
+DB_DIR = Path(__file__).resolve().parent.parent / "db"
 FILE_PATH = DB_DIR / "data.json"
 
 
@@ -61,9 +65,12 @@ def save_app_data(tracker_data: WalletEngineData) -> None:
         print("\n  [✓] Session saved successfully.\n")
 
     except Exception as err:
-        print(f"\n  [!] Error: Unable to save session. Details: {err}")
         if temp_file_path.exists():
             temp_file_path.unlink()
+
+        raise PersistenceError(
+            "Unable to save application data."
+        ) from err
 
 
 def load_app_data() -> WalletEngineData:
@@ -116,11 +123,12 @@ def load_app_data() -> WalletEngineData:
     # Rehydrate transaction timestamps back to datetime objects
     for trx in raw_data.get("transactions", []):
         trx_copy = trx.copy()
-        timestamp = trx_copy.get("timestamp")
-        trx_type = trx_copy.get("transaction_type")
+        transaction_date = trx_copy.get("transaction_date")
 
-        if isinstance(timestamp, str):
-            trx_copy["timestamp"] = datetime.fromisoformat(timestamp)
+        if isinstance(transaction_date, str):
+            trx_copy["transaction_date"] = date.fromisoformat(
+                transaction_date
+            )
 
         trx_obj = Transaction(
             id=trx_copy["id"],

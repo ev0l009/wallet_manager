@@ -21,18 +21,21 @@ if TYPE_CHECKING:
 def create_account(
     wallet_instance: WalletEngine, 
     acc_map: dict[str, str]
-):
-    raw_name = input("  Enter account name → ")
+) -> None:
     acc_type = get_acc_type()
 
-    if acc_type:
-        try:
-            acc_name = get_valid_acc_name(raw_name, acc_map)
-            wallet_instance.create_account(acc_name,acc_type)
-        except WalletError as err:
-            print(err)
-        else:
-            print("\n  [✓] Account created successfully.")
+    if not acc_type:
+        return
+    
+    raw_name = input("  Enter account name → ")
+
+    try:
+        acc_name = get_valid_acc_name(raw_name, acc_map)
+        wallet_instance.create_account(acc_name,acc_type)
+    except WalletError as err:
+        print(err)
+    else:
+        print("\n  [✓] Account created successfully.")
 
 
 def record_transfer(

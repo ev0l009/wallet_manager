@@ -1,17 +1,4 @@
-
 from enum import Enum
-
-
-class AccDashState(Enum):
-    """Navigation states for individual account inspection dashboards."""
-
-    ACC_DASH = "acc_dash"
-    BALANCE = "balance"
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    DEACTIVATE = "deactivate"
-    RETURN = "return"
-
 
 class AccType(Enum):
     """Supported account classifications."""

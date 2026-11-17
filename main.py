@@ -13,28 +13,19 @@ from ui.menu_states import MenuState
 from ui.menus import (
     get_main_menu_state,
     select_acc,
-    get_acc_dash_state,
-    get_exp_category,
-    get_acc_type
 )
-from utils.validators import get_valid_acc_name
-from ui.views import (
-    display_active_accounts,
-    display_acc_bal,
-    display_transactions,
-    display_reports
-)
+from ui.views import display_transactions
 
 from handlers import (
     create_account,
-    record_transfer, 
-    record_income,
-    record_expense, 
-    record_reversal
+    record_transfer,
+    record_reversal,
+    show_active_accounts,
+    manage_account,
+    show_reports
 )
 
 from ui.menu_states import AccDashState
-from models.types import FundedAccDict
 
 from exceptions.errors import WalletError
 
@@ -80,17 +71,7 @@ def wallet_runner() -> None:
 
         elif current_state == MenuState.LIST_ACCOUNTS:
 
-            active_accounts = wallet.get_active_accounts()
-            funded_active_accounts: list[FundedAccDict] = [
-                {
-                    **acc.to_dict(), 
-                    "acc_bal": wallet.get_acc_bal(acc.id)
-                }
-                for acc in active_accounts
-            ]
-            
-            display_active_accounts(funded_active_accounts)
-
+            show_active_accounts(wallet)
             current_state = MenuState.DASHBOARD
 
         # Financial transaction operations.
@@ -102,53 +83,7 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.ACC_DASHBOARD:
-            acc_map = wallet.get_active_acc_map()
-            
-            selected_acc_id = select_acc(acc_map)
-
-            if selected_acc_id:
-
-                acc = wallet.get_account(selected_acc_id)
-                acc_dash_state = AccDashState.ACC_DASH
-
-                while True:
-                    if acc_dash_state == AccDashState.ACC_DASH:
-                        acc_dash_state = get_acc_dash_state(acc.acc_name)
-
-                    elif acc_dash_state == AccDashState.BALANCE:
-
-                        acc_bal = wallet.get_acc_bal(acc.id)
-                        display_acc_bal(acc_bal)
-                        acc_dash_state = AccDashState.ACC_DASH
-
-                    elif acc_dash_state == AccDashState.DEPOSIT:
-                        
-                        record_income( wallet, acc.id)
-                        acc_dash_state = AccDashState.ACC_DASH
-
-                    elif acc_dash_state == AccDashState.WITHDRAWAL:
-                        record_expense( wallet, acc.id )
-                        acc_dash_state = AccDashState.ACC_DASH
-
-                    elif acc_dash_state == AccDashState.DEACTIVATE:
-                        acc_map = wallet.get_active_acc_map()
-                        
-                        acc_id = select_acc(acc_map)
-                        if acc_id:
-
-                            try:
-                                wallet.deactivate_acc(acc_id)
-                            except WalletError as err:
-                                print(err)
-
-                        acc_dash_state = AccDashState.RETURN
-
-                    elif acc_dash_state == AccDashState.RETURN:
-                        acc_dash_state = AccDashState.RETURN
-
-                    else:
-                        print("Invalid selection. try again...")
-                            
+            manage_account( wallet )    
 
             current_state = MenuState.DASHBOARD
 
@@ -174,20 +109,12 @@ def wallet_runner() -> None:
 
         # Financial reporting operations.
         elif current_state == MenuState.REPORTS:
-            (
-                total_income, 
-                total_expense, 
-                net_delta, 
-                expenses_by_category
-            ) = wallet.get_reports()
-
-            display_reports(
-                total_income, 
-                total_expense, 
-                net_delta, 
-                expenses_by_category
-            )
+            show_reports(wallet)
             current_state = MenuState.DASHBOARD
+
+        elif current_state == MenuState.EXIT:
+            print("\n  • Exiting Finance Tracker...")
+            break
 
         # Prevent unsupported states from causing an infinite loop.
         else:
@@ -197,7 +124,6 @@ def wallet_runner() -> None:
             )
             current_state = MenuState.DASHBOARD
 
-    print("\n  • Exiting Finance Tracker...")
 
 
 try:

@@ -15,6 +15,25 @@ from exceptions.errors import (
     WalletError
 )
 
+from ui.views import (
+    display_active_accounts,
+    display_acc_bal,
+    display_transactions,
+    display_reports
+)
+
+from ui.menus import (
+    get_main_menu_state,
+    select_acc,
+    get_acc_dash_state,
+    get_exp_category,
+    get_acc_type
+)
+
+from ui.menu_states import AccDashState
+
+from models.types import FundedAccDict
+
 if TYPE_CHECKING:
     from services.wallet_engine import WalletEngine
 
@@ -126,3 +145,75 @@ def record_reversal(wallet_instance: WalletEngine) -> None:
         print(err)
     else:
         print("\n  [✓] Transaction reversal successful.")
+
+def show_active_accounts(wallet_instance: WalletEngine) -> None:
+    active_accounts = wallet_instance.get_active_accounts()
+    funded_active_accounts: list[FundedAccDict] = [
+        {
+            **acc.to_dict(), 
+            "acc_bal": wallet_instance.get_acc_bal(acc.id)
+        }
+        for acc in active_accounts
+    ]
+    
+    display_active_accounts(funded_active_accounts)
+
+def manage_account(wallet_instance: WalletEngine) -> None:
+    acc_map = wallet_instance.get_active_acc_map()
+            
+    selected_acc_id = select_acc(acc_map)
+
+    if selected_acc_id:
+
+        acc = wallet_instance.get_account(selected_acc_id)
+        acc_dash_state = AccDashState.ACC_DASH
+
+        while True:
+            if acc_dash_state == AccDashState.ACC_DASH:
+                acc_dash_state = get_acc_dash_state(acc.acc_name)
+
+            elif acc_dash_state == AccDashState.BALANCE:
+
+                acc_bal = wallet_instance.get_acc_bal(acc.id)
+                display_acc_bal(acc_bal)
+                acc_dash_state = AccDashState.ACC_DASH
+
+            elif acc_dash_state == AccDashState.DEPOSIT:
+                
+                record_income( wallet_instance, acc.id)
+                acc_dash_state = AccDashState.ACC_DASH
+
+            elif acc_dash_state == AccDashState.WITHDRAWAL:
+                record_expense( wallet_instance, acc.id )
+                acc_dash_state = AccDashState.ACC_DASH
+
+            elif acc_dash_state == AccDashState.DEACTIVATE:
+                try:
+                    wallet_instance.deactivate_acc(acc.id)
+                except WalletError as err:
+                    print(err)
+                else:
+                    print("\n  [✓] Account deactivated successfully.")
+
+                break
+
+            elif acc_dash_state == AccDashState.RETURN:
+                break
+
+            else:
+                print("Invalid selection. try again...")
+
+def show_reports(wallet_instance: WalletEngine) -> None:
+    (
+        total_income, 
+        total_expense, 
+        net_delta, 
+        expenses_by_category
+    ) = wallet_instance.get_reports()
+
+    display_reports(
+        total_income, 
+        total_expense, 
+        net_delta, 
+        expenses_by_category
+    )

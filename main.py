@@ -65,15 +65,19 @@ def wallet_runner() -> None:
 
         # Account management operations.
         elif current_state == MenuState.CREATE_ACCOUNT.value:
+
             raw_name = input("  Enter account name → ")
-            try:
-                acc_name = get_valid_acc_name(raw_name, acc_map)
-                acc_type = get_acc_type()
-                wallet.create_account(acc_name,acc_type)
-            except WalletError as err:
-                print(err)
-            else:
-                print("\n  [✓] Account created successfully.")
+            acc_type = get_acc_type()
+
+            if acc_type:
+                try:
+                    acc_name = get_valid_acc_name(raw_name, acc_map)
+                    wallet.create_account(acc_name,acc_type)
+                except WalletError as err:
+                    print(err)
+                else:
+                    print("\n  [✓] Account created successfully.")
+
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.LIST_ACCOUNTS.value:
@@ -93,25 +97,28 @@ def wallet_runner() -> None:
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
-            try:
-                source_acc_id = select_acc(acc_map)
-                raw_amt = input("Enter amount: ").strip()
-                target_acc_id = select_acc(
-                    acc_map=acc_map, 
-                    id_to_skip=source_acc_id
-                )
-                raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+            source_acc_id = select_acc(acc_map)
+            target_acc_id = select_acc(
+                acc_map=acc_map, 
+                id_to_skip=source_acc_id
+            )
 
-                wallet.record_transfer(
-                    source_acc_id=source_acc_id,
-                    target_acc_id=target_acc_id,
-                    inp_amt=raw_amt,
-                    inp_date=raw_date
-                )
-            except WalletError as err:
-                print(err)
-            else:
-                print("\n  [✓] Transfer record successful.")
+            if source_acc_id and target_acc_id:
+                try:
+                    raw_amt = input("Enter amount: ").strip()
+                    raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+
+                    wallet.record_transfer(
+                        source_acc_id=source_acc_id,
+                        target_acc_id=target_acc_id,
+                        inp_amt=raw_amt,
+                        inp_date=raw_date
+                    )
+                except WalletError as err:
+                    print(err)
+                else:
+                    print("\n  [✓] Transfer record successful.")
+
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:

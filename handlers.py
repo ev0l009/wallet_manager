@@ -41,33 +41,37 @@ def create_account(
 def record_transfer(
     wallet_instance: WalletEngine, 
     acc_map: dict[str, str]
-):
+) -> None:
     source_acc_id = select_acc(acc_map)
+    if source_acc_id is None:
+        return
+    
     target_acc_id = select_acc(
         acc_map=acc_map, 
         id_to_skip=source_acc_id
     )
+    if target_acc_id is None:
+        return
 
-    if source_acc_id and target_acc_id:
-        try:
-            raw_amt = input("Enter amount: ").strip()
-            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+    try:
+        raw_amt = input("Enter amount: ").strip()
+        raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
 
-            wallet_instance.record_transfer(
-                source_acc_id=source_acc_id,
-                target_acc_id=target_acc_id,
-                inp_amt=raw_amt,
-                inp_date=raw_date
-            )
-        except WalletError as err:
-            print(err)
-        else:
-            print("\n  [✓] Transfer record successful.")
+        wallet_instance.record_transfer(
+            source_acc_id=source_acc_id,
+            target_acc_id=target_acc_id,
+            inp_amt=raw_amt,
+            inp_date=raw_date
+        )
+    except WalletError as err:
+        print(err)
+    else:
+        print("\n  [✓] Transfer record successful.")
 
 def record_income(
     wallet_instance: WalletEngine, 
     acc_id: str
-):
+) -> None:
     try:
         raw_amt = input("Enter amount: ").strip()
         raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
@@ -87,9 +91,11 @@ def record_income(
 def record_expense(
     wallet_instance: WalletEngine, 
     acc_id: str
-):
+) -> None:
     raw_amt = input("Enter amount: ").strip()
+
     exp_cat = get_exp_category()
+
     if exp_cat:
         desc = input("Enter a short description: ").strip()
         raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
@@ -103,13 +109,20 @@ def record_expense(
             )
         except WalletError as err:
             print(err)
+        else:
+            print("\n  [✓] Expense record successful.")
 
 
-def record_reversal(wallet_instance: WalletEngine):
+def record_reversal(wallet_instance: WalletEngine) -> None:
     original_trx_id = input("Enter the original transaction ID: ").strip()
     raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
 
-    wallet_instance.record_reversal(
-        original_trx_id,
-        raw_date
-    )
+    try:
+        wallet_instance.record_reversal(
+            original_trx_id=original_trx_id,
+            inp_date=raw_date
+        )
+    except WalletError as err:
+        print(err)
+    else:
+        print("\n  [✓] Transaction reversal successful.")

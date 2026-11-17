@@ -66,7 +66,6 @@ def wallet_runner() -> None:
 
             acc_map = wallet.get_active_acc_map()
             create_account( wallet, acc_map )
-
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.LIST_ACCOUNTS:
@@ -77,14 +76,11 @@ def wallet_runner() -> None:
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER:
             acc_map = wallet.get_active_acc_map()
-
             record_transfer( wallet, acc_map )
-
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.ACC_DASHBOARD:
             manage_account( wallet )    
-
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.TRANSACTIONS:
@@ -94,7 +90,6 @@ def wallet_runner() -> None:
 
         elif current_state == MenuState.REVERSE_TRANSACTION:
             record_reversal( wallet )
-            
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.REACTIVATE_ACC:
@@ -103,7 +98,6 @@ def wallet_runner() -> None:
 
             if selected_acc:
                 wallet.reactivate_acc(selected_acc)
-
             current_state = MenuState.DASHBOARD
 
         # Financial reporting operations.

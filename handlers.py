@@ -18,12 +18,10 @@ from exceptions.errors import (
 from ui.views import (
     display_active_accounts,
     display_acc_bal,
-    display_transactions,
     display_reports
 )
 
 from ui.menus import (
-    get_main_menu_state,
     select_acc,
     get_acc_dash_state,
     get_exp_category,

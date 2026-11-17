@@ -19,6 +19,6 @@ class AccDashState(Enum):
     ACC_DASH = "acc_dash"
     BALANCE = "balance"
     DEPOSIT = "deposit"
-    WITHRAWAL = "withdrawal"
+    WITHDRAWAL = "withdrawal"
     DEACTIVATE = "deactivate"
     RETURN = "return"

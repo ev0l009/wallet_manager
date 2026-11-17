@@ -1,26 +1,26 @@
-from ui.menu_states import MenuState
+from ui.menu_states import MenuState, AccDashState
 from models.enums import (
     AccType,
-    AccDashState,
     ExpCatOpts
 )
-from exceptions.errors import InvalidAccountTypeError
 
-def get_main_menu_state() -> str:
-    """Displays the main menu interface and captures the next navigation state.
+
+def get_main_menu_state() -> MenuState:
+    """Displays the main menu and captures the next navigation state.
 
     Returns:
-        str: The string value mapping to the next target MenuState.
+        MenuState: The selected navigation state.
+            Returns MenuState.DASHBOARD if the selection is invalid.
     """
     options = {
-        "1": MenuState.CREATE_ACCOUNT.value,
-        "2": MenuState.LIST_ACCOUNTS.value,
-        "3": MenuState.TRANSFER.value,
-        "4": MenuState.ACC_DASHBOARD.value,
-        "5": MenuState.TRANSACTIONS.value,
-        "6": MenuState.REACTIVATE_ACC.value,
-        "7": MenuState.REPORTS.value,
-        "8": MenuState.EXIT.value,
+        "1": MenuState.CREATE_ACCOUNT,
+        "2": MenuState.LIST_ACCOUNTS,
+        "3": MenuState.TRANSFER,
+        "4": MenuState.ACC_DASHBOARD,
+        "5": MenuState.TRANSACTIONS,
+        "6": MenuState.REACTIVATE_ACC,
+        "7": MenuState.REPORTS,
+        "8": MenuState.EXIT,
     }
 
     print("\n  FINANCE TRACKER")
@@ -38,21 +38,18 @@ def get_main_menu_state() -> str:
 
     if choice not in options:
         print("\n  [!] Invalid choice. Please try again.")
-        return MenuState.DASHBOARD.value
+        return MenuState.DASHBOARD
 
     return options[choice]
 
 
-def get_acc_type() -> str:
-    """Prompt the user to select an account classification.
+def get_acc_type() -> str | None:
+    """Prompts the user to select an account classification.
 
     Returns:
         str: The selected account type.
-
-    Raises:
-        InvalidAccountTypeError: If the selection is invalid.
+        None: If the selection is invalid.
     """
-
     options = {
         "1": AccType.BANK.value,
         "2": AccType.CASH.value,
@@ -70,28 +67,28 @@ def get_acc_type() -> str:
     choice = input("  Select option (1-4) → ").strip()
 
     if choice not in options:
-        raise InvalidAccountTypeError(
-            "Invalid selection. Choose an option between 1 and 4."
-        )
+        print("\n  [!] Invalid account type selection.")
+        return None
 
     return options[choice]
 
 
-def get_acc_dash_state(acc_name: str) -> str:
+def get_acc_dash_state(acc_name: str) -> AccDashState:
     """Displays the individual account inspection actions sub-menu.
 
     Args:
-        acc_name: The descriptive string name of the account under inspection.
+        acc_name: The descriptive name of the account under inspection.
 
     Returns:
-        str: The string value mapping to the next target AccDashState.
+        AccDashState: The selected account dashboard navigation state.
+            Returns AccDashState.ACC_DASH if the selection is invalid.
     """
     options = {
-        "1": AccDashState.BALANCE.value,
-        "2": AccDashState.DEPOSIT.value,
-        "3": AccDashState.WITHRAWAL.value,
-        "4": AccDashState.DEACTIVATE.value,
-        "5": AccDashState.RETURN.value,
+        "1": AccDashState.BALANCE,
+        "2": AccDashState.DEPOSIT,
+        "3": AccDashState.WITHDRAWAL,
+        "4": AccDashState.DEACTIVATE,
+        "5": AccDashState.RETURN,
     }
 
     print(f"\n  ACCOUNT: {acc_name.upper()}")
@@ -106,7 +103,7 @@ def get_acc_dash_state(acc_name: str) -> str:
 
     if choice not in options:
         print("\n  [!] Invalid choice. Please try again.")
-        return AccDashState.ACC_DASH.value
+        return AccDashState.ACC_DASH
 
     return options[choice]
 
@@ -115,20 +112,17 @@ def select_acc(
     acc_map: dict[str, str],
     id_to_skip: str | None = None,
     heading: str | None = None,
-) -> str:
-    """Renders a dynamically numbered list of accounts for user selection.
+) -> str | None:
+    """Displays a dynamically numbered list of accounts for selection.
 
     Args:
-        acc_map: Mapping containing structural database account IDs to names.
-        id_to_skip: Optional ID constraint to omit from selection views.
-        heading: Custom optional title overlay text for the selection layout.
+        acc_map: Mapping of account IDs to account names.
+        id_to_skip: Optional account ID to exclude from selection.
+        heading: Optional custom heading for the selection menu.
 
     Returns:
-        str: The unique account identity identifier string.
-
-    Raises:
-        NullEligibleAccountsError: If no valid accounts exist after filtering.
-        InvalidOptionError: If user selections do not match active runtime keys.
+        str: The selected account ID.
+        None: If no eligible accounts exist or the selection is invalid.
     """
     options: dict[str, str] = {}
     title_text = heading.upper() if heading else "SELECT ACCOUNT"
@@ -137,35 +131,37 @@ def select_acc(
     print("  " + "—" * 25)
 
     idx = 1
+
     for acc_id, acc_name in acc_map.items():
         if acc_id == id_to_skip:
             continue
+
         print(f"  {idx}. {acc_name.title()}")
         options[str(idx)] = acc_id
         idx += 1
 
     if not options:
-        print("No eligible accounts available.")
-        return "empty_account"
+        print("\n  No eligible accounts available.")
+        return None
 
     print()
-    choice = input(f"  Select option (1-{len(options)}) → ").strip()
+    choice = input(
+        f"  Select option (1-{len(options)}) → "
+    ).strip()
 
     if choice not in options:
-        print("Invalid account selection. Selection canceled.")
-        return "invalid_choice"
+        print("\n  Invalid account selection. Selection canceled.")
+        return None
 
     return options[choice]
 
 
-def get_exp_category() -> str:
-    """Presents recognized expense categorization options for tracking.
+def get_exp_category() -> str | None:
+    """Presents recognized expense categorization options.
 
     Returns:
-        str: The chosen plain lowercase expense category label.
-
-    Raises:
-        InvalidOptionError: If the user provides an out-of-bounds input.
+        str: The selected expense category.
+        None: If the selection is invalid.
     """
     cat_options = {
         "1": ExpCatOpts.FOOD.value,
@@ -179,14 +175,17 @@ def get_exp_category() -> str:
     }
 
     print("\n  Select category:")
+
     for idx, cat in cat_options.items():
         print(f"  {idx}. {cat.capitalize()}")
 
     print()
-    choice = input(f"  Select option (1-{len(cat_options)}) → ").strip()
+    choice = input(
+        f"  Select option (1-{len(cat_options)}) → "
+    ).strip()
 
     if choice not in cat_options:
-        print("Invalid category selection. Selection canceled.")
-        return "invalid_selection"
+        print("\n  Invalid category selection. Selection canceled.")
+        return None
 
     return cat_options[choice]

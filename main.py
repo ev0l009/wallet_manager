@@ -151,7 +151,7 @@ def wallet_runner() -> None:
                             print("\n  [✓] Income record successful.")
                         acc_dash_state = AccDashState.ACC_DASH.value
 
-                    elif acc_dash_state == AccDashState.WITHRAWAL.value:
+                    elif acc_dash_state == AccDashState.WITHDRAWAL.value:
                         raw_amt = input("Enter amount: ").strip()
                         exp_cat = get_exp_category()
                         desc = input("Enter a short description: ").strip()

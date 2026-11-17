@@ -1,22 +1,249 @@
-wallet_manager/
-│
-├── main.py
-│
-├── ui/
-│   ├── __init__.py
-│   ├── menus.py
-│   └── account_views.py
-│
-├── models/
-│   ├── __init__.py
-│   ├── wallet_engine.py
-│   ├── account.py
-│   ├── transaction.py
-│   └── types.py
-│
-├── file_manager/
-│   └── storage.py
-│
-└── utils/
-    ├── validators.py
-    └── exceptions.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Review: `ui/views.py`
+
+This module is correctly positioned as a presentation layer: it receives data and renders it for the user. It doesn't directly call `WalletEngine`, mutate accounts, or execute transactions. That's the right general responsibility.
+
+However, there are some important issues here. Two are particularly significant: **currency representation** and **reporting correctness**.
+
+### 1. Currency formatting is inconsistent with your SRS
+
+You currently display:
+
+```python
+balance_str = f"${acc['acc_bal']:,.2f}"
+```
+
+And similar formatting appears throughout the module.
+
+There are two problems:
+
+- Your application uses Nigerian Naira, not US Dollars. The display should use `₦`.
+- Your amounts are stored as integer Kobo, not Naira.
+
+For example, if `acc_bal` is `150000`, that represents ₦1,500.00, not ₦150,000.00.
+
+You need a presentation conversion:
+
+```python
+def format_money(amount_kobo: int) -> str:
+    naira = amount_kobo / 100
+    return f"₦{naira:,.2f}"
+```
+
+This is acceptable for **display only**. Your domain calculations and stored values must remain integers.
+
+Use this helper consistently in all four display functions.
+
+The corrected helper should avoid floating-point arithmetic entirely, even during formatting. Since your SRS prohibits floats throughout the application, use integer arithmetic:
+
+```python
+def format_money(amount_kobo: int) -> str:
+    sign = "-" if amount_kobo < 0 else ""
+    naira, kobo = divmod(abs(amount_kobo), 100)
+    return f"{sign}₦{naira:,}.{kobo:02d}"
+```
+
+This converts Kobo to a display string without ever creating a float. It also handles negative values correctly.
+
+### 2. `display_transactions()` doesn't distinguish all transaction types
+
+Currently:
+
+```python
+if trx.transaction_type == TrxType.DEPOSIT.value:
+    amt_str = f"+${trx.amount:,.2f}"
+elif trx.transaction_type == TrxType.TRANSFER.value:
+    amt_str = f"⇄ ${trx.amount:,.2f}"
+else:
+    amt_str = f"-${trx.amount:,.2f}"
+```
+
+The `else` branch implicitly treats every other transaction as an expense.
+
+But your application has four transaction types:
+
+- DEPOSIT
+- WITHDRAW
+- TRANSFER
+- REVERSAL
+
+A reversal is not an ordinary expense. It is a correction referencing an earlier transaction.
+
+I'd make the handling explicit:
+
+```python
+if trx.transaction_type == TrxType.DEPOSIT.value:
+    ...
+elif trx.transaction_type == TrxType.WITHDRAW.value:
+    ...
+elif trx.transaction_type == TrxType.TRANSFER.value:
+    ...
+elif trx.transaction_type == TrxType.REVERSAL.value:
+    ...
+```
+
+For reversal presentation, a correction indicator such as `↶` would be clearer than assigning it an ordinary positive or negative sign.
+
+Also, remember that the history view and reporting view have different data requirements:
+
+- Transaction history should preserve visibility of original transactions and their reversal records.
+- Financial reports should use the effective transaction set according to your agreed reversal rules.
+
+The handler or reporting operation should supply the appropriate collection. The view shouldn't independently decide which transactions are financially effective.
+
+### 3. `display_reports()` is doing too much
+
+This is the most important architectural issue in the module.
+
+Currently, the view calculates:
+
+```python
+total_income = sum(...)
+total_expense = sum(...)
+net_balance = total_income - total_expense
+```
+
+It also groups expenses by category.
+
+These are reporting calculations, not presentation responsibilities.
+
+Consider the distinction:
+
+- **Reporting logic:** Which transactions count as income? Which expenses should be excluded? How are reversals handled? What date range applies?
+- **Presentation logic:** How should total income, expenses, net delta, and category breakdown be displayed?
+
+The first belongs in the business/application layer. The second belongs here.
+
+I'd prefer an interface along these lines:
+
+```python
+def display_reports(report_data: ReportData) -> None:
+    ...
+```
+
+`ReportData` would contain already-calculated values, such as:
+
+- Total income
+- Total expenses
+- Net delta
+- Expenses grouped by category
+
+The reporting operation would construct this data, and the view would render it.
+
+This also makes it easier to implement your SRS's inclusive date-range reporting without turning the view into a reporting engine.
+
+### 4. The report's net figure has the wrong label
+
+You currently display:
+
+```python
+print(f"  Net Total Balance:  ${net_balance:,.2f}")
+```
+
+But:
+
+```python
+net_balance = total_income - total_expense
+```
+
+This is **Net Delta**, not total account balance or net worth.
+
+Your SRS distinguishes these concepts:
+
+- Dashboard net worth: sum of active accounts' ledger-derived balances.
+- Report net delta: total income minus total expenses within the selected reporting period.
+
+The label should reflect that distinction. Otherwise, users could mistake their income-minus-expenses figure for their actual available wealth.
+
+### 5. Account table formatting needs a little attention
+
+Your account table truncates account names longer than 14 characters:
+
+```python
+if len(acc["acc_name"]) > 14:
+    name_trunc = f"{acc["acc_name"].title()[:14]}.."
+```
+
+There are two things to consider:
+
+**First:** Your SRS allows account names up to 20 characters. Truncating them is a presentation decision, not a domain restriction, so it's acceptable. However, consider whether the table can accommodate the full name before truncating.
+
+**Second:** Your account ID column has a width of 12 characters:
+
+```python
+f"{acc['id']:<12}"
+```
+
+If you're using UUIDs, their full representation is considerably longer. That will disrupt the table layout.
+
+You could display an abbreviated ID in this view, provided the full ID remains available internally and is used for actual selection and operations.
+
+Also, use local variables when constructing the formatted rows. It makes the f-strings easier to read and avoids nested quotation issues across Python versions.
+
+### 6. Smaller improvements
+
+A few minor points:
+
+- Add `-> None` to `display_acc_bal()`.
+- Change `list [ FundedAccDict ]` to `list[FundedAccDict]`.
+- Use a generator expression in `sum()` rather than constructing temporary lists.
+- Replace the `type: ignore` comments in `display_reports()` with explicit handling of optional categories—or, preferably, receive already-validated report data where category values are guaranteed.
+- Keep the empty-state messages. They make the interface more informative.
+
+---
+
+## Overall assessment
+
+| Function | Assessment |
+|---|---|
+| `display_active_accounts()` | Good responsibility; currency and table formatting need correction. |
+| `display_acc_bal()` | Good responsibility; needs Kobo-aware formatting. |
+| `display_transactions()` | Needs explicit handling of all four transaction types. |
+| `display_reports()` | Needs architectural separation between report calculation and presentation. |
+
+### Recommended responsibility after refactoring
+
+I'd aim for this division:
+
+| Component | Responsibility |
+|---|---|
+| WalletEngine / reporting operation | Calculate balances, income, expenses, net delta, and category totals. |
+| `handlers.py` | Request the appropriate data and coordinate the operation. |
+| `ui/views.py` | Format and display the supplied data. |
+
+This is an important distinction: **a view should not need to understand the financial rules behind the numbers it displays.**
+
+### Verdict
+
+Your presentation module has a good foundation. It doesn't need a complete rewrite, but `display_reports()` should be simplified into a renderer, and all monetary formatting needs to respect the Kobo representation.
+
+One thing I want to preserve from your existing design is the use of simple functions rather than introducing view classes unnecessarily. Nothing in this module currently justifies that added complexity.
+
+**Next: `main.py`.** That's where we'll examine how the components are assembled, how startup loading works, and whether the application follows the intended navigation flow.

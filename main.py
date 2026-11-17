@@ -89,8 +89,7 @@ def wallet_runner() -> None:
 
         elif current_state == MenuState.TRANSACTIONS:
             transactions = wallet.get_transactions()
-            if transactions:
-                display_transactions(transactions)
+            display_transactions(transactions)
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.REVERSE_TRANSACTION:
@@ -126,24 +125,12 @@ def wallet_runner() -> None:
 
 
 
-try:
-    # Start the application.
-    wallet_runner()
-
-except Exception:
-    # Log unexpected exceptions with their complete traceback.
-    logger.exception("Unexpected application failure.")
-
-    # Display a generic error message without exposing internal details.
-    print(
-        "\n[CRITICAL ERROR] An unexpected system error occurred."
-    )
-    print(
-        "The application encountered a problem and must close."
-    )
-    print(
-        "Error details have been recorded in the application log."
-    )
-
-    # Terminate with a non-zero exit status.
-    sys.exit(1)
+if __name__ == "__main__":
+    try:
+        wallet_runner()
+    except Exception:
+        logger.exception("Unexpected application failure.")
+        print("\n[CRITICAL ERROR] An unexpected system error occurred.")
+        print("The application encountered a problem and must close.")
+        print("Error details have been recorded in the application log.")
+        sys.exit(1)

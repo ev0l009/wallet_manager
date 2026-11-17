@@ -202,6 +202,7 @@ def manage_account(wallet_instance: WalletEngine) -> None:
 
             else:
                 print("Invalid selection. try again...")
+                acc_dash_state = AccDashState.ACC_DASH
 
 def show_reports(wallet_instance: WalletEngine) -> None:
     (

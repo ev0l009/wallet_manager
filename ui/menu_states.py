@@ -10,6 +10,7 @@ class MenuState(Enum):
     TRANSFER = "transfer"
     ACC_DASHBOARD = "acc_dashboard"
     TRANSACTIONS = "transactions"
+    REVERSE_TRANSACTION = "reverse_transaction"
     REPORTS = "reports"
     REACTIVATE_ACC = "reactivate"
 

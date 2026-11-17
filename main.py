@@ -208,11 +208,24 @@ def wallet_runner() -> None:
                 display_transactions(transactions)
             current_state = MenuState.DASHBOARD.value
 
+        elif current_state == MenuState.REVERSE_TRANSACTION.value:
+            original_trx_id = input("Enter the original transaction ID: ").strip()
+            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+
+            wallet.record_reversal(
+                original_trx_id,
+                raw_date
+            )
+            
+            current_state = MenuState.DASHBOARD.value
+
         elif current_state == MenuState.REACTIVATE_ACC.value:
             acc_map = wallet.get_inactive_acc_map()
             selected_acc = select_acc(acc_map)
+
             if selected_acc:
                 wallet.reactivate_acc(selected_acc)
+
             current_state = MenuState.DASHBOARD.value
 
         # Financial reporting operations.

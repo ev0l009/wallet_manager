@@ -26,7 +26,6 @@ from file_manager.storage import (
     load_app_data
 )
  
-
 from utils.validators import (
     convert_to_kobo,
     get_valid_date
@@ -58,8 +57,6 @@ class WalletEngine:
             storage: Data Access Layer responsible for loading and
                 persisting application data.
         """
-
-        # self.storage = storage
 
         self.data: WalletEngineData = {
             "accounts": {},

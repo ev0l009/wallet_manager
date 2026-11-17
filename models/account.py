@@ -96,7 +96,7 @@ class Account:
     def acc_name(self, value: str) -> None:
         """Validates and updates the account name."""
 
-        if not isinstance(value, str): # type: ignore
+        if not isinstance(value, str):
             raise InvalidAccountNameError(
                 "Account name must be a string."
             )
@@ -108,9 +108,9 @@ class Account:
                 "Account name cannot be empty."
             )
 
-        if len(value) < 3:
+        if len(value) < 4:
             raise InvalidAccountNameError(
-                "Account name must contain at least three characters."
+                "Account name must contain at least four characters."
             )
 
         self._acc_name = value

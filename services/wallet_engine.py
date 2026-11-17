@@ -361,7 +361,7 @@ class WalletEngine:
         } - {None}
 
         for account_id in affected_account_ids:
-            account = self.get_account(account_id)
+            account = self.get_account(account_id) # type: ignore
 
             if account.acc_status != AccStat.ACTIVE.value:
                 raise InactiveAccountError(

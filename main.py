@@ -25,6 +25,13 @@ from ui.views import (
     display_reports
 )
 
+from handlers import (
+    create_account,
+    record_transfer, 
+    record_income,
+    record_expense
+)
+
 from ui.menu_states import AccDashState
 from models.types import FundedAccDict
 
@@ -65,19 +72,8 @@ def wallet_runner() -> None:
         # Account management operations.
         elif current_state == MenuState.CREATE_ACCOUNT:
 
-            raw_name = input("  Enter account name → ")
-            acc_type = get_acc_type()
-
             acc_map = wallet.get_active_acc_map()
-
-            if acc_type:
-                try:
-                    acc_name = get_valid_acc_name(raw_name, acc_map)
-                    wallet.create_account(acc_name,acc_type)
-                except WalletError as err:
-                    print(err)
-                else:
-                    print("\n  [✓] Account created successfully.")
+            create_account( wallet, acc_map )
 
             current_state = MenuState.DASHBOARD
 
@@ -100,27 +96,7 @@ def wallet_runner() -> None:
         elif current_state == MenuState.TRANSFER:
             acc_map = wallet.get_active_acc_map()
 
-            source_acc_id = select_acc(acc_map)
-            target_acc_id = select_acc(
-                acc_map=acc_map, 
-                id_to_skip=source_acc_id
-            )
-
-            if source_acc_id and target_acc_id:
-                try:
-                    raw_amt = input("Enter amount: ").strip()
-                    raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-
-                    wallet.record_transfer(
-                        source_acc_id=source_acc_id,
-                        target_acc_id=target_acc_id,
-                        inp_amt=raw_amt,
-                        inp_date=raw_date
-                    )
-                except WalletError as err:
-                    print(err)
-                else:
-                    print("\n  [✓] Transfer record successful.")
+            record_transfer( wallet, acc_map )
 
             current_state = MenuState.DASHBOARD
 
@@ -146,38 +122,11 @@ def wallet_runner() -> None:
 
                     elif acc_dash_state == AccDashState.DEPOSIT:
                         
-                        try:
-                            raw_amt = input("Enter amount: ").strip()
-                            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-                            desc = input("Enter a short description: ").strip()
-                            wallet.record_income(
-                                acc_id=acc.id,
-                                amount=raw_amt,
-                                desc=desc,
-                                inp_date=raw_date
-                            )
-                        except WalletError as err:
-                            print(err)
-                        else:
-                            print("\n  [✓] Income record successful.")
+                        record_income( wallet, acc.id)
                         acc_dash_state = AccDashState.ACC_DASH
 
                     elif acc_dash_state == AccDashState.WITHDRAWAL:
-                        raw_amt = input("Enter amount: ").strip()
-                        exp_cat = get_exp_category()
-                        if exp_cat:
-                            desc = input("Enter a short description: ").strip()
-                            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-                            try:
-                                wallet.record_expense(
-                                    acc_id=acc.id,
-                                    amount=raw_amt,
-                                    exp_cat=exp_cat,
-                                    desc=desc,
-                                    inp_date=raw_date
-                                )
-                            except WalletError as err:
-                                print(err)
+                        record_expense( wallet, acc.id )
                         acc_dash_state = AccDashState.ACC_DASH
 
                     elif acc_dash_state == AccDashState.DEACTIVATE:

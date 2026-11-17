@@ -1,110 +1,170 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from models.enums import TrxType
-
 from models.types import FundedAccDict
 
 if TYPE_CHECKING:
-     from models.transaction import Transaction
-
-def display_active_accounts(funded_active_accounts: list [ FundedAccDict ]) -> None:
-        """Renders a formatted text grid table displaying active accounts in memory."""
-        print("\n  ACTIVE ACCOUNTS")
-        print("  " + "—" * 58)
-        
-        if not funded_active_accounts:
-            print("  [i] There are no active accounts right now.\n")
-            return
-
-        print(f"  {'Account Name':<16} {'Account ID':<12} {'Type':<12} {'Balance':>12}")
-        print("  " + "—" * 58)
-        
-        for acc in funded_active_accounts:
-            # Prevent grid breakage by truncating names longer than 14 characters
-            if len(acc["acc_name"]) > 14:
-                name_trunc = f"{acc["acc_name"].title()[:14]}.."
-            else:
-                name_trunc = acc["acc_name"].title()
-                
-            type_str = acc["acc_type"].capitalize()
-            balance_str = f"${acc["acc_bal"]:,.2f}"
-            
-            print(f"  {name_trunc:<16} {acc["id"]:<12} {type_str:<12} {balance_str:>12}")
-            
-        print("  " + "—" * 58 + "\n")
+    from models.transaction import Transaction
 
 
-def display_acc_bal(acc_bal: int):
+def format_money(amount_kobo: int) -> str:
+    """Formats an integer Kobo amount as Nigerian Naira.
+
+    Args:
+        amount_kobo: Monetary amount represented in Kobo.
+
+    Returns:
+        str: Formatted Naira amount without floating-point conversion.
+    """
+    sign = "-" if amount_kobo < 0 else ""
+    naira, kobo = divmod(abs(amount_kobo), 100)
+
+    return f"{sign}₦{naira:,}.{kobo:02d}"
+
+
+def display_active_accounts(
+    funded_active_accounts: list[FundedAccDict]
+) -> None:
+    """Displays a formatted table of active accounts.
+
+    Args:
+        funded_active_accounts: Accounts eligible for display.
+    """
+    print("\n  ACTIVE ACCOUNTS")
+    print("  " + "—" * 90)
+
+    if not funded_active_accounts:
+        print("  [i] There are no active accounts right now.\n")
+        return
+
+    print(
+        f"  {'Account Name':<20} "
+        f"{'Account ID':<36} "
+        f"{'Type':<12} "
+        f"{'Balance':>16}"
+    )
+    print("  " + "—" * 90)
+
+    for acc in funded_active_accounts:
+        name = acc["acc_name"].title()
+
+        if len(name) > 20:
+            name = name[:17] + "..."
+
+        acc_id = acc["id"]
+        type_str = acc["acc_type"].capitalize()
+        balance_str = format_money(acc["acc_bal"])
+
+        print(
+            f"  {name:<20} "
+            f"{acc_id:<36} "
+            f"{type_str:<12} "
+            f"{balance_str:>16}"
+        )
+
+    print("  " + "—" * 90 + "\n")
+
+
+def display_acc_bal(acc_bal: int) -> None:
+    """Displays the available balance of an account.
+
+    Args:
+        acc_bal: Account balance represented in Kobo.
+    """
     print("\n  CURRENT BALANCE")
     print("  " + "—" * 25)
-    print(f"  Available Funds:  ${acc_bal:,.2f}")
+    print(f"  Available Funds:  {format_money(acc_bal)}")
     print("  " + "—" * 25 + "\n")
 
 
-def display_transactions(transactions: list[ Transaction ]) -> None:
-        """Renders a structured grid report of historical transaction records."""
-        if not transactions:
-            print("\n  [!] No transactions found in this ledger.\n")
-            return
+def display_transactions(
+    transactions: list[Transaction]
+) -> None:
+    """Displays historical transaction records.
 
-        print("\n  TRANSACTION HISTORY")
-        print("  " + "—" * 45)
-        print(f"  {'ID':<13} {'Type':<11} {'Amount':>16}")
-        print("  " + "—" * 45)
+    Preserves visibility of original transactions and their reversals.
+    """
+    if not transactions:
+        print("\n  [!] No transactions found in this ledger.\n")
+        return
 
-        for trx in transactions:
-            trx_id = trx.id
-            trx_type = trx.transaction_type.capitalize()
-            
-            # Explicit directional labeling based on specific financial context types
-            if trx.transaction_type == TrxType.DEPOSIT.value:
-                amt_str = f"+${trx.amount:,.2f}"
-            elif trx.transaction_type == TrxType.TRANSFER.value:
-                amt_str = f"⇄ ${trx.amount:,.2f}"
-            else:
-                amt_str = f"-${trx.amount:,.2f}"
-
-            print(f"  {trx_id:<13} {trx_type:<11} {amt_str:>16}")
-
-        print("  " + "—" * 45 + "\n")
-
-
-def display_reports(transactions: list[ Transaction ]) -> None:
-    """Generates comprehensive aggregated summaries of global accounting metrics."""
-    total_income = sum([
-        t.amount for t in  transactions
-        if t.transaction_type == TrxType.DEPOSIT.value
-    ])
-
-    total_expense = sum([
-        t.amount for t in  transactions
-        if t.transaction_type == TrxType.WITHDRAW.value
-    ])
-
-    net_balance = total_income - total_expense
-
-    expense_category: dict[str, int] = {}
+    print("\n  TRANSACTION HISTORY")
+    print("  " + "—" * 70)
+    print(
+        f"  {'ID':<36} "
+        f"{'Type':<11} "
+        f"{'Amount':>18}"
+    )
+    print("  " + "—" * 70)
 
     for trx in transactions:
-        if trx.transaction_type == TrxType.WITHDRAW.value:
-            cat = trx.category.title() # type: ignore
-            expense_category[cat] = expense_category.get(cat, 0) + trx.amount # type: ignore
+        trx_id = trx.id
+        trx_type = trx.transaction_type.capitalize()
+        amount = format_money(abs(trx.amount))
 
-        print("\n  FINANCIAL REPORT OVERVIEW")
-        print("  " + "—" * 35)
-        print(f"  Net Total Balance:  ${net_balance:,.2f}")
-        print(f"  Total Income (+):   ${total_income:,.2f}")
-        print(f"  Total Expenses (-): ${total_expense:,.2f}")
-        print("  " + "—" * 35)
+        if trx.transaction_type == TrxType.DEPOSIT.value:
+            amt_str = f"+{amount}"
 
-        print("\n  EXPENSES BY CATEGORY")
-        print("  " + "—" * 35)
-        
-        if not expense_category:
-            print("  (No expense transactions logged yet)")
+        elif trx.transaction_type == TrxType.WITHDRAW.value:
+            amt_str = f"-{amount}"
+
+        elif trx.transaction_type == TrxType.TRANSFER.value:
+            amt_str = f"⇄ {amount}"
+
+        elif trx.transaction_type == TrxType.REVERSAL.value:
+            amt_str = f"↶ {amount}"
+
         else:
-            for cat, amt in expense_category.items():
-                print(f"  {cat:<18} ${amt:>12,.2f}")
-                
-        print("  " + "—" * 35 + "\n")
+            amt_str = f"? {format_money(trx.amount)}"
+
+        print(
+            f"  {trx_id:<36} "
+            f"{trx_type:<11} "
+            f"{amt_str:>18}"
+        )
+
+    print("  " + "—" * 70 + "\n")
+
+
+def display_reports(
+    total_income: int,
+    total_expense: int,
+    net_delta: int,
+    expenses_by_category: dict[str, int],
+) -> None:
+    """Displays pre-calculated financial reporting figures.
+
+    All monetary values must be supplied in Kobo.
+
+    Args:
+        total_income: Total income for the reporting period.
+        total_expense: Total expenses for the reporting period.
+        net_delta: Net income minus expenses for the reporting period.
+        expenses_by_category: Pre-calculated expense totals grouped
+            by category.
+    """
+    print("\n  FINANCIAL REPORT OVERVIEW")
+    print("  " + "—" * 35)
+
+    print(f"  Net Delta:          {format_money(net_delta)}")
+    print(f"  Total Income (+):   {format_money(total_income)}")
+    print(f"  Total Expenses (-): {format_money(total_expense)}")
+
+    print("  " + "—" * 35)
+
+    print("\n  EXPENSES BY CATEGORY")
+    print("  " + "—" * 35)
+
+    if not expenses_by_category:
+        print("  (No expense transactions logged yet)")
+
+    else:
+        for cat, amount in expenses_by_category.items():
+            print(
+                f"  {cat.title():<18} "
+                f"{format_money(amount):>16}"
+            )
+
+    print("  " + "—" * 35 + "\n")

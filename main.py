@@ -51,7 +51,6 @@ def wallet_runner() -> None:
     # Initialize the wallet engine and load persisted application data.
     wallet = WalletEngine()
     wallet.load()
-    acc_map = wallet.get_active_acc_map()
 
     # Start the application at the main dashboard.
     current_state = MenuState.DASHBOARD.value
@@ -68,6 +67,8 @@ def wallet_runner() -> None:
 
             raw_name = input("  Enter account name → ")
             acc_type = get_acc_type()
+
+            acc_map = wallet.get_active_acc_map()
 
             if acc_type:
                 try:
@@ -97,6 +98,8 @@ def wallet_runner() -> None:
 
         # Financial transaction operations.
         elif current_state == MenuState.TRANSFER.value:
+            acc_map = wallet.get_active_acc_map()
+
             source_acc_id = select_acc(acc_map)
             target_acc_id = select_acc(
                 acc_map=acc_map, 
@@ -122,6 +125,7 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD.value
 
         elif current_state == MenuState.ACC_DASHBOARD.value:
+            acc_map = wallet.get_active_acc_map()
             
             selected_acc_id = select_acc(acc_map)
 
@@ -161,33 +165,39 @@ def wallet_runner() -> None:
                     elif acc_dash_state == AccDashState.WITHDRAWAL.value:
                         raw_amt = input("Enter amount: ").strip()
                         exp_cat = get_exp_category()
-                        desc = input("Enter a short description: ").strip()
-                        raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-                        try:
-                            wallet.record_expense(
-                                acc_id=acc.id,
-                                amount=raw_amt,
-                                exp_cat=exp_cat,
-                                desc=desc,
-                                inp_date=raw_date
-                            )
-                        except WalletError as err:
-                            print(err)
+                        if exp_cat:
+                            desc = input("Enter a short description: ").strip()
+                            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+                            try:
+                                wallet.record_expense(
+                                    acc_id=acc.id,
+                                    amount=raw_amt,
+                                    exp_cat=exp_cat,
+                                    desc=desc,
+                                    inp_date=raw_date
+                                )
+                            except WalletError as err:
+                                print(err)
                         acc_dash_state = AccDashState.ACC_DASH.value
 
                     elif acc_dash_state == AccDashState.DEACTIVATE.value:
+                        acc_map = wallet.get_active_acc_map()
                         
                         acc_id = select_acc(acc_map)
-                        try:
-                            wallet.deactivate_acc(acc_id)
-                        except WalletError as err:
-                            print(err)
+                        if acc_id:
+
+                            try:
+                                wallet.deactivate_acc(acc_id)
+                            except WalletError as err:
+                                print(err)
+
                         acc_dash_state = AccDashState.RETURN.value
+
                     elif acc_dash_state == AccDashState.RETURN.value:
-                        break
+                        acc_dash_state = AccDashState.RETURN.value
+
                     else:
                         print("Invalid selection. try again...")
-                        acc_dash_state = AccDashState.ACC_DASH.value
                             
 
             current_state = MenuState.DASHBOARD.value

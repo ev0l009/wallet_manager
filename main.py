@@ -29,7 +29,8 @@ from handlers import (
     create_account,
     record_transfer, 
     record_income,
-    record_expense
+    record_expense, 
+    record_reversal
 )
 
 from ui.menu_states import AccDashState
@@ -158,13 +159,7 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.REVERSE_TRANSACTION:
-            original_trx_id = input("Enter the original transaction ID: ").strip()
-            raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
-
-            wallet.record_reversal(
-                original_trx_id,
-                raw_date
-            )
+            record_reversal( wallet )
             
             current_state = MenuState.DASHBOARD
 

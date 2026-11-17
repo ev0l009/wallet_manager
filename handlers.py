@@ -100,3 +100,13 @@ def record_expense(
             )
         except WalletError as err:
             print(err)
+
+
+def record_reversal(wallet_instance: WalletEngine):
+    original_trx_id = input("Enter the original transaction ID: ").strip()
+    raw_date = input("Enter transaction date [YYYY-MM-DD]: ").strip()
+
+    wallet_instance.record_reversal(
+        original_trx_id,
+        raw_date
+    )

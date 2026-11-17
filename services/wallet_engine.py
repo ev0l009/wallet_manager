@@ -485,7 +485,7 @@ class WalletEngine:
 
 
     def _validate_chronological_balances(
-    self,
+        self,
         transactions: list[Transaction],
         accounts: dict[str, Account] | None = None,
     ) -> None:

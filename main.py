@@ -79,7 +79,7 @@ def wallet_runner() -> None:
         elif current_state == MenuState.LIST_ACCOUNTS.value:
 
             active_accounts = wallet.get_active_accounts()
-            funded_active_accounts = [
+            funded_active_accounts: list[FundedAccDict] = [
                 {
                     **acc.to_dict(), 
                     "acc_bal": wallet.get_acc_bal(acc.id)

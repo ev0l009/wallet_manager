@@ -44,7 +44,7 @@ class FundedAccDict(TypedDict):
     id: str
     acc_name: str
     acc_type: str
-    acc_bal: str
+    acc_bal: int
     acc_status: str
     created_at: str
 

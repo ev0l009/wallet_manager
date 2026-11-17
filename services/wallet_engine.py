@@ -483,7 +483,7 @@ class WalletEngine:
             )
         )
 
-    def get_reports(self):
+    def get_reports(self) -> tuple[ int, int, int, dict[str, int] ]:
         effective_transactions = self.get_effective_transactions()
         total_income = sum([
             trx.amount for trx in effective_transactions

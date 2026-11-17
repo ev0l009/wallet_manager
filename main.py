@@ -200,9 +200,19 @@ def wallet_runner() -> None:
 
         # Financial reporting operations.
         elif current_state == MenuState.REPORTS.value:
-            transactions = wallet.get_transactions()
-            if transactions:
-                display_reports(transactions)
+            (
+                total_income, 
+                total_expense, 
+                net_delta, 
+                expenses_by_category
+            ) = wallet.get_reports()
+
+            display_reports(
+                total_income, 
+                total_expense, 
+                net_delta, 
+                expenses_by_category
+            )
             current_state = MenuState.DASHBOARD.value
 
         # Prevent unsupported states from causing an infinite loop.

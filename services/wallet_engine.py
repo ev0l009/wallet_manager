@@ -483,6 +483,30 @@ class WalletEngine:
             )
         )
 
+    def get_reports(self):
+        effective_transactions = self.get_effective_transactions()
+        total_income = sum([
+            trx.amount for trx in effective_transactions
+            if trx.transaction_type == TrxType.DEPOSIT.value
+        ])
+
+        total_expense = sum([
+            trx.amount for trx in effective_transactions
+            if trx.transaction_type == TrxType.WITHDRAW.value
+        ])
+
+        net_delta = total_income - total_expense
+
+        expenses_by_category = {}
+
+        for trx in effective_transactions:
+            if trx.transaction_type == TrxType.WITHDRAW.value:
+                if trx.category in expenses_by_category:
+                    expenses_by_category[trx.category] += trx.amount
+                expenses_by_category[trx.category] = trx.amount
+
+        return total_income, total_expense, net_delta, expenses_by_category
+
 
     def _validate_chronological_balances(
         self,

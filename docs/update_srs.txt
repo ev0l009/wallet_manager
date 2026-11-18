@@ -16,3 +16,67 @@ Our agreed SRS updates are:
 Next step: I'll help rewrite the affected SRS sections once we're done reviewing the related code.
 
 Send `models/transaction.py` next.
+
+
+Noted. Here's the updated reconciliation.
+
+## Transaction — resolved items
+
+| Area | Decision |
+| --- | --- |
+| Immutability | Transactions are immutable. |
+| ID generation | IDs are generated at the Business Logic Layer. |
+| Amount | Positive integers only. |
+| Transaction date | Date-only representation. |
+| Transaction types | Follow `TrxType` enum. |
+| Expense categories | Required only for expenses (withdrawals). |
+| Transfers | SRS conforms to code. |
+| Withdrawals | SRS conforms to code. |
+| Deposits | SRS conforms to code. |
+| Reversals | SRS conforms to code. |
+| Description | Optional. |
+| Account references | Existence/validity checks handled at Business Logic Layer. |
+| Serialization | SRS must conform to `from_dict()` and `to_dict()`. |
+
+## What's left to clarify
+
+There are just a few implementation details worth settling before updating the SRS:
+
+| Area | Current code behaviour | Question |
+| --- | --- | --- |
+| Invalid transaction ID | Raises `EntityNotFoundError` for empty or invalid IDs. | Should this remain as specified? |
+| Invalid amount | Raises `InvalidAmountError`. | No discrepancy identified. |
+| Invalid transaction date | Raises `BusinessRuleError` if not a `date`. | Should persisted invalid dates instead raise `StorageCorruptedError`? |
+| Invalid transaction type | Raises `InvalidTransactionTypeError`. | Should persisted invalid types use `StorageCorruptedError`? |
+| Invalid category | Raises `InvalidCategoryError`. | Should persisted invalid categories use `StorageCorruptedError`? |
+
+One important observation: `datetime` is also accepted by `isinstance(value, date)`, because Python's `datetime` inherits from `date`. So the current validation doesn't strictly exclude datetime objects.
+
+Let's settle the remaining items one at a time.
+
+
+Perfect. All five exception decisions are settled.
+
+## Transaction — final reconciliation
+
+| Area | Agreed behaviour |
+| --- | --- |
+| Immutability | Immutable transactions |
+| ID generation | Business Logic Layer |
+| Invalid transaction ID | `EntityNotFoundError` |
+| Amount | Positive integers only |
+| Invalid amount | `InvalidAmountError` |
+| Transaction date | Date-only representation |
+| Invalid transaction date | `InvalidDateError` |
+| Transaction type | Must match `TrxType` |
+| Invalid transaction type | `InvalidTransactionTypeError` |
+| Expense category | Required only for withdrawals |
+| Invalid category | `InvalidCategoryError` |
+| Transfers, withdrawals, deposits, reversals | SRS conforms to implementation |
+| Description | Optional |
+| Account references | Checked at Business Logic Layer |
+| Serialization | Must conform to `from_dict()` and `to_dict()` |
+
+Reconciliation completeOne implementation detail to keep in mind: the current code still raises `BusinessRuleError` for invalid transaction dates. The SRS decision is `InvalidDateError`, so the code and SRS will need to agree eventually.
+
+Next: We can move on to the next model, or update the Account and Transaction sections of the SRS together.

@@ -15,6 +15,7 @@ from exceptions.errors import (
     InvalidTransactionTypeError,
     InvalidCategoryError,
     BusinessRuleError,
+    InvalidDateError
 )
 
 from models.enums import TrxType, ExpCatOpts
@@ -50,7 +51,7 @@ class Transaction:
 
         # Transaction date
         if not isinstance(self.transaction_date, date): # type: ignore
-            raise BusinessRuleError(
+            raise InvalidDateError(
                 "Transaction date must be a valid date."
             )
 

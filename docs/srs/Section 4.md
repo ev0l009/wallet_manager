@@ -1,0 +1,104 @@
+# 3\. Assumptions
+
+### ASM-01: Single-User Execution Environment
+
+- The system assumes an isolated, local execution architecture dedicated to a single user profile.
+- Remote user authentication, role-based access controls (RBAC), and session tokens are outside the current design scope.
+
+### ASM-02: Ex Post Facto Ledger Recording
+
+- All manually entered financial records are assumed to represent transactions that have already concluded in the real world.
+- This assumption justifies the rejection of future-dated transactions.
+
+### ASM-03: Single-Threaded Execution and File Access
+
+- The system assumes synchronous, single-threaded execution by one terminal process at a time.
+- Concurrent file access, multi-process write conflicts, and race conditions are outside the supported execution model.
+- The application does not guarantee multi-process concurrency control.
+
+### ASM-04: Environment and Runtime Compatibility
+
+- The application assumes execution within a standard command-line interface terminal.
+- Python 3.10 or higher must be installed on the host operating system.
+
+### ASM-05: Controllable System Date Provider
+
+- The application must obtain the current calendar date through a dedicated date-provider function rather than directly accessing the system clock throughout the Business Logic Layer.
+- During normal execution, the provider must return the host operating system's current local calendar date.
+- The date provider must be replaceable or injectable during automated testing.
+- All future-date validation must use the date returned by this provider to ensure consistent and reproducible results.
+
+### ASM-06: Controlled Application Configuration
+
+- The application assumes that supported account types, transaction classifications, and expense categories are centrally defined.
+- Configuration changes must be made through controlled application updates rather than arbitrary user modifications to the JSON storage file.
+- Existing historical transaction records must remain readable following compatible configuration updates.
+
+---
+
+# 4\. Identified Ambiguities
+
+### AMB-01: Terminal Interaction Pattern
+
+- **Ambiguity:** The original requirements define functional capabilities but do not specify how users should interact with the application through the CLI.
+- **Resolution:** The application will use a synchronous interactive menu loop implemented with Python's native `input()` utility rather than raw command-line argument parsing.
+
+### AMB-02: Structural Casing for Uniqueness Constraints
+
+- **Ambiguity:** The original requirements require unique account names but do not define how capitalization should affect uniqueness.
+- **Resolution:** Account-name uniqueness will be evaluated case-insensitively across both active and inactive accounts.
+- **Example:** "Cash" and "cash" will be treated as duplicate account names.
+- Leading and trailing whitespace will be removed before uniqueness evaluation.
+- Renaming and reactivation will enforce the same uniqueness rule.
+
+### AMB-03: Persistence Technology Selection
+
+- **Ambiguity:** The original requirements specify persistent transaction history but do not prescribe a storage technology.
+- **Resolution:** The application will use a structured JSON flat-file as its exclusive persistence mechanism. SQLite and other database management systems are excluded from the current implementation.
+
+**Justification:**
+
+JSON provides a lightweight, human-readable persistence mechanism suitable for the application's single-user, single-process execution environment. It integrates directly with Python's native `json` module and supports the established Data Access Layer architecture.
+
+**Trade-off:**
+
+JSON does not provide native database indexing, query optimization, transactional rollback, or database-level concurrency controls. Consequently, large transaction histories will increase file parsing, serialization, filtering, and pagination costs.
+
+### AMB-04: Transaction Category and Description Semantics
+
+- **Ambiguity:** The requirements distinguish descriptive labels from expense categories but do not explicitly define how these fields apply to each transaction type.
+- **Resolution:**
+  - EXPENSE transactions must contain a category and may contain a descriptive label.
+  - INCOME transactions may contain a descriptive label but do not require an expense category.
+  - TRANSFER transactions may contain a descriptive label but do not require an expense category.
+  - REVERSAL transactions must inherit their financial references from the original transaction and may contain a descriptive correction label.
+- The category field must be `null` for INCOME, TRANSFER, and REVERSAL records.
+- The category field must not be used to classify internal transfers or reversals.
+
+### AMB-05: Account Balance Initialization
+
+- **Ambiguity:** The original requirements do not define how newly created accounts acquire their initial balances.
+- **Resolution:** All accounts must begin with zero Kobo.
+- Initial funding must be recorded through a valid INCOME transaction rather than directly assigning a starting balance.
+- This preserves the ledger as the authoritative source of account balances.
+
+### AMB-06: Transaction Correction Mechanism
+
+- **Ambiguity:** The original requirements establish an immutable transaction ledger but do not specify how users recover from incorrectly recorded transactions.
+- **Resolution:** Historical transactions must never be directly edited or deleted.
+- Incorrect transactions must be corrected through compensating REVERSAL transactions.
+- The user may subsequently record a replacement transaction containing the correct information.
+- Original transactions and their reversals must remain independently identifiable in the historical ledger.
+
+### AMB-07: Architecture Dependency Direction
+
+- **Ambiguity:** The original architecture describes communication between the Business Logic and Data Access Layers without defining dependency ownership.
+- **Resolution:** The application will use one-way runtime interaction:
+  - Presentation Layer calls the Business Logic Layer.
+  - Business Logic Layer uses an abstract storage interface.
+  - Data Access Layer implements that interface.
+  - The application entry point connects the concrete storage implementation to the Business Logic Layer.
+- The Data Access Layer must not import or depend on the Business Logic Layer or Presentation Layer.
+- Dependency injection will allow business operations to be tested without physical disk access.
+
+---

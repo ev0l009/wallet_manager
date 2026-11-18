@@ -15,5 +15,50 @@
             "created_at": "2026-11-16T10:20:58+00:00"
         }
     },
-    "transactions": []
+    "transactions": [
+        {
+            "id": "trx_oxIUS",
+            "amount": 1000000,
+            "transaction_date": "2026-10-10",
+            "transaction_type": "deposit",
+            "category": null,
+            "desc": "Initial deposit",
+            "source_acc_id": null,
+            "target_acc_id": "acc_Htz6a",
+            "reverses_transaction_id": null
+        },
+        {
+            "id": "trx_SgrLl",
+            "amount": 100000,
+            "transaction_date": "2026-10-26",
+            "transaction_type": "withdraw",
+            "category": "food",
+            "desc": "Food",
+            "source_acc_id": "acc_Htz6a",
+            "target_acc_id": null,
+            "reverses_transaction_id": null
+        },
+        {
+            "id": "trx_LbLpX",
+            "amount": 100000,
+            "transaction_date": "2026-11-18",
+            "transaction_type": "transfer",
+            "category": null,
+            "desc": null,
+            "source_acc_id": "acc_Htz6a",
+            "target_acc_id": "acc_ZxMfy",
+            "reverses_transaction_id": null
+        },
+        {
+            "id": "trx_gtWLO",
+            "amount": 100000,
+            "transaction_date": "2026-11-18",
+            "transaction_type": "reversal",
+            "category": null,
+            "desc": null,
+            "source_acc_id": "acc_Htz6a",
+            "target_acc_id": "acc_ZxMfy",
+            "reverses_transaction_id": "trx_LbLpX"
+        }
+    ]
 }

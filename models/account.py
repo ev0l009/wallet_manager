@@ -12,6 +12,7 @@ from exceptions.errors import (
     InvalidAccountNameError,
     InvalidAccountTypeError,
     BusinessRuleError,
+    StorageCorruptedError
 )
 
 from models.enums import AccType, AccStat
@@ -160,7 +161,7 @@ class Account:
             }
 
             if status not in allowed_statuses:
-                raise BusinessRuleError(
+                raise StorageCorruptedError(
                     f"Invalid stored account status: '{status}'."
                 )
 

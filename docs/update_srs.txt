@@ -1,0 +1,18 @@
+Agreed. A missing `acc_status` field in persisted account data must raise `StorageCorruptedError`.
+
+Account model review completeAll discrepancies have now been resolved.
+
+Our agreed SRS updates are:
+
+- Remove the 20-character account-name maximum.
+- Assign account IDs in the Business Logic Layer.
+- Calculate balances in the Business Logic Layer from transaction history.
+- Move name uniqueness and deactivation balance validation to the Business Logic Layer.
+- Reactivation checks status only, without name uniqueness validation.
+- Use `StorageCorruptedError` for invalid or missing persisted statuses.
+- Rename the JSON status field to `acc_status`.
+- Set minimum Python version to 3.11.
+
+Next step: I'll help rewrite the affected SRS sections once we're done reviewing the related code.
+
+Send `models/transaction.py` next.

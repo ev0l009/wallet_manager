@@ -18,9 +18,10 @@ def get_main_menu_state() -> MenuState:
         "3": MenuState.TRANSFER,
         "4": MenuState.ACC_DASHBOARD,
         "5": MenuState.TRANSACTIONS,
-        "6": MenuState.REACTIVATE_ACC,
-        "7": MenuState.REPORTS,
-        "8": MenuState.EXIT,
+        "6": MenuState.REVERSE_TRANSACTION,
+        "7": MenuState.REACTIVATE_ACC,
+        "8": MenuState.REPORTS,
+        "9": MenuState.EXIT,
     }
 
     print("\n  FINANCE TRACKER")
@@ -30,9 +31,10 @@ def get_main_menu_state() -> MenuState:
     print("  3. Transfer Funds")
     print("  4. Inspect Account")
     print("  5. Transactions")
-    print("  6. Reactivate Account")
-    print("  7. Reports")
-    print("  8. Exit\n")
+    print("  6. Reverse Transactions")
+    print("  7. Reactivate Account")
+    print("  8. Reports")
+    print("  9. Exit\n")
 
     choice = input("  Select option (1-8) → ").strip()
 

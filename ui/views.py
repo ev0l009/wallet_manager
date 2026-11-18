@@ -93,9 +93,10 @@ def display_transactions(
     print("\n  TRANSACTION HISTORY")
     print("  " + "—" * 70)
     print(
-        f"  {'ID':<36} "
+        f"  {'ID':<15} "
         f"{'Type':<11} "
         f"{'Amount':>18}"
+        f"{'Date':>18}"
     )
     print("  " + "—" * 70)
 
@@ -119,10 +120,16 @@ def display_transactions(
         else:
             amt_str = f"? {format_money(trx.amount)}"
 
+        if hasattr(trx.transaction_date, "strftime"):
+            date_str = trx.transaction_date.strftime("%Y-%m-%d")
+        else:
+            date_str = str(trx.transaction_date or "N/A")
+
         print(
-            f"  {trx_id:<36} "
+            f"  {trx_id:<15} "
             f"{trx_type:<11} "
             f"{amt_str:>18}"
+            f"{date_str:>18}"
         )
 
     print("  " + "—" * 70 + "\n")

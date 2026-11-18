@@ -191,7 +191,7 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                 acc_dash_state = AccDashState.ACC_DASH
 
             elif acc_dash_state == AccDashState.ACCOUNT_REPORTS:
-                show_reports()
+                show_account_reports( acc.id, wallet_instance )
                 acc_dash_state = AccDashState.ACC_DASH
 
             elif acc_dash_state == AccDashState.DEACTIVATE:
@@ -203,8 +203,6 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                     print("\n  [✓] Account deactivated successfully.")
 
                 break
-
-            # activity/summary(overview of transaction by account, expense by category etc)
 
             elif acc_dash_state == AccDashState.RETURN:
                 break
@@ -241,13 +239,13 @@ def show_reports(wallet_instance: WalletEngine) -> None:
         expenses_by_category
     )
 
-def show_account_reports(wallet_instance: WalletEngine) -> None:
+def show_account_reports(acc_id: str, wallet_instance: WalletEngine) -> None:
     (
         total_income, 
         total_expense, 
         net_delta, 
         expenses_by_category
-    ) = wallet_instance.get_account_reports()
+    ) = wallet_instance.get_account_reports(acc_id)
 
     display_reports(
         total_income, 

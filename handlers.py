@@ -22,12 +22,15 @@ from ui.menus import (
     get_acc_type
 )
 
+from utils.validators import get_valid_acc_name
+
 from ui.menu_states import AccDashState
 
 from models.types import FundedAccDict
 
 if TYPE_CHECKING:
     from services.wallet_engine import WalletEngine
+    from models.account import Account
 
 def create_account(
     wallet_instance: WalletEngine, 
@@ -151,7 +154,7 @@ def show_active_accounts(wallet_instance: WalletEngine) -> None:
     display_active_accounts(funded_active_accounts)
 
 def manage_account(wallet_instance: WalletEngine) -> None:
-    acc_map = wallet_instance.get_active_acc_map()
+    acc_map = wallet_instance.get_all_acc_map()
             
     selected_acc_id = select_acc(acc_map)
 
@@ -179,6 +182,10 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                 record_expense( wallet_instance, acc.id )
                 acc_dash_state = AccDashState.ACC_DASH
 
+            elif acc_dash_state == AccDashState.UPDATE_ACC:
+                update_account_name( wallet_instance, acc, acc_map )
+                acc_dash_state = AccDashState.ACC_DASH
+
             elif acc_dash_state == AccDashState.DEACTIVATE:
                 try:
                     wallet_instance.deactivate_acc(acc.id)
@@ -188,6 +195,8 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                     print("\n  [✓] Account deactivated successfully.")
 
                 break
+
+            # Add account transactions and account details, activity/summary(overview of transaction by account, expense by category etc)
 
             elif acc_dash_state == AccDashState.RETURN:
                 break
@@ -210,3 +219,20 @@ def show_reports(wallet_instance: WalletEngine) -> None:
         net_delta, 
         expenses_by_category
     )
+
+def update_account_name(
+    wallet_instance: WalletEngine, 
+    acc_instance: Account,
+    acc_map: dict [str, str]
+):
+    new_acc_name = input("Enter the new Account Name: ").strip()
+    try:
+        cleaned_name = get_valid_acc_name(new_acc_name, acc_map)
+        wallet_instance.update_account_name(
+            acc_instance.id,
+            cleaned_name
+        )
+    except WalletError as err:
+        print(err)
+    else:
+        print("\n  [✓] Account updated successfully.")

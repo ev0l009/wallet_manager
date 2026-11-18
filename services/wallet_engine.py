@@ -108,6 +108,24 @@ class WalletEngine:
         self._commit(proposed_data)
 
         return deepcopy(new_account)
+
+    def update_account_name(self, acc_id: str, acc_name: str):
+        normalized_name = acc_name.strip().casefold()
+        
+        for account in self.data["accounts"].values():
+            if account.acc_name.casefold() == normalized_name:
+                raise DuplicateAccountNameError(
+                    f"An account named '{acc_name}' already exists."
+                )
+
+        account = self.get_account(acc_id)
+        
+        proposed_data = deepcopy(self.data)
+        proposed_data["accounts"][acc_id].acc_name = normalized_name
+
+        self._commit(proposed_data)
+
+        return deepcopy(account)
     
     def get_account(self, account_id: str) -> Account:
         """Retrieve a detached copy of an account by ID."""
@@ -151,6 +169,22 @@ class WalletEngine:
             for account in self.data["accounts"].values()
             if account.acc_status == AccStat.INACTIVE.value
         ]
+
+    def get_all_accounts(self) -> list[Account]:
+        """Return detached copies of all accounts."""
+
+        return [
+            deepcopy(account)
+            for account in self.data["accounts"].values()
+        ]
+
+    def get_all_acc_map(self) -> dict[str, str]:
+        """Return all account IDs mapped to account names."""
+
+        return {
+            account.id: account.acc_name
+            for account in self.get_all_accounts()
+        }
 
     def get_active_acc_map(self) -> dict[str, str]:
         """Return active account IDs mapped to account names."""
@@ -402,6 +436,17 @@ class WalletEngine:
 
         proposed_data = deepcopy(self.data)
         account = proposed_data["accounts"][acc_id]
+
+        account_name = account.acc_name.casefold()
+
+        for other_account in proposed_data["accounts"].values():
+            if other_account.id == acc_id:
+                continue
+
+            if other_account.acc_name.casefold() == account_name:
+                raise DuplicateAccountNameError(
+                    f"An account named '{account.acc_name}' already exists."
+                )
 
         account.reactivate()
 

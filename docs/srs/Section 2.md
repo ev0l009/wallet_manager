@@ -5,7 +5,7 @@
 - **Req-1: Account Creation & Metadata**
   - The system must allow users to create multiple concurrent financial accounts.
   - Every account must have a unique system-generated identifier (ID), a user-defined account name, an account type, a creation timestamp, an initial balance of zero Kobo, and an account status.
-  - Supported account types are BANK, SAVINGS, CASH, and MOBILE\_WALLET.
+  - Supported account types are BANK, SAVINGS, CASH, and MOBILE.
   - Every newly created account must have an initial status of ACTIVE.
   - Account identifiers, timestamps, statuses, and initial balances must be assigned internally by the application.
 - **Req-2: Account Retrieval (View & Inspect)**

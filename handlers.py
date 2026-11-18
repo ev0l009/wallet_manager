@@ -241,6 +241,21 @@ def show_reports(wallet_instance: WalletEngine) -> None:
         expenses_by_category
     )
 
+def show_account_reports(wallet_instance: WalletEngine) -> None:
+    (
+        total_income, 
+        total_expense, 
+        net_delta, 
+        expenses_by_category
+    ) = wallet_instance.get_account_reports()
+
+    display_reports(
+        total_income, 
+        total_expense, 
+        net_delta, 
+        expenses_by_category
+    )
+
 def update_account_name(
     wallet_instance: WalletEngine, 
     acc_instance: Account,

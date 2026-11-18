@@ -191,7 +191,7 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                 acc_dash_state = AccDashState.ACC_DASH
 
             elif acc_dash_state == AccDashState.ACCOUNT_REPORTS:
-                print(acc)
+                show_reports()
                 acc_dash_state = AccDashState.ACC_DASH
 
             elif acc_dash_state == AccDashState.DEACTIVATE:

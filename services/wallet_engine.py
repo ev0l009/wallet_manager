@@ -556,8 +556,44 @@ class WalletEngine:
             total_expense, 
             net_delta, 
             expenses_by_category
-        )
+        ) # type: ignore
 
+    def get_account_reports(self, acc_id: str) -> tuple[ int, int, int, dict[str, int] ]:
+        effective_transactions = self.get_effective_transactions()
+        acc_transactions = [
+            trx for trx in effective_transactions
+            if (
+                trx.source_acc_id == acc_id or
+                trx.target_acc_id == acc_id
+            )
+
+        ]
+        total_income = sum([
+            trx.amount for trx in acc_transactions
+            if trx.transaction_type == TrxType.DEPOSIT.value
+        ])
+
+        total_expense = sum([
+            trx.amount for trx in acc_transactions
+            if trx.transaction_type == TrxType.WITHDRAW.value
+        ])
+
+        net_delta = total_income - total_expense
+
+        expenses_by_category = {}
+
+        for trx in acc_transactions:
+            if trx.transaction_type == TrxType.WITHDRAW.value:
+                if trx.category not in expenses_by_category:
+                    expenses_by_category[trx.category] = trx.amount
+                expenses_by_category[trx.category] += trx.amount
+
+        return (
+            total_income, 
+            total_expense, 
+            net_delta, 
+            expenses_by_category
+        ) # type: ignore
 
     def _validate_chronological_balances(
         self,

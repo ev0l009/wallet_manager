@@ -403,17 +403,6 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         account = proposed_data["accounts"][acc_id]
 
-        account_name = account.acc_name.casefold()
-
-        for other_account in proposed_data["accounts"].values():
-            if other_account.id == acc_id:
-                continue
-
-            if other_account.acc_name.casefold() == account_name:
-                raise DuplicateAccountNameError(
-                    f"An account named '{account.acc_name}' already exists."
-                )
-
         account.reactivate()
 
         self._commit(proposed_data)
@@ -501,9 +490,9 @@ class WalletEngine:
 
         for trx in effective_transactions:
             if trx.transaction_type == TrxType.WITHDRAW.value:
-                if trx.category in expenses_by_category:
-                    expenses_by_category[trx.category] += trx.amount
-                expenses_by_category[trx.category] = trx.amount
+                if trx.category not  in expenses_by_category:
+                    expenses_by_category[trx.category] = trx.amount
+                expenses_by_category[trx.category] += trx.amount
 
         return total_income, total_expense, net_delta, expenses_by_category
 

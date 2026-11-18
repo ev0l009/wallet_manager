@@ -12,7 +12,9 @@ from exceptions.errors import (
 from ui.views import (
     display_active_accounts,
     display_acc_bal,
-    display_reports
+    display_reports,
+    display_transactions,
+    display_account_details
 )
 
 from ui.menus import (
@@ -141,17 +143,6 @@ def record_reversal(wallet_instance: WalletEngine) -> None:
     else:
         print("\n  [✓] Transaction reversal successful.")
 
-def show_active_accounts(wallet_instance: WalletEngine) -> None:
-    active_accounts = wallet_instance.get_active_accounts()
-    funded_active_accounts: list[FundedAccDict] = [
-        {
-            **acc.to_dict(), 
-            "acc_bal": wallet_instance.get_acc_bal(acc.id)
-        }
-        for acc in active_accounts
-    ]
-    
-    display_active_accounts(funded_active_accounts)
 
 def manage_account(wallet_instance: WalletEngine) -> None:
     acc_map = wallet_instance.get_all_acc_map()
@@ -186,6 +177,23 @@ def manage_account(wallet_instance: WalletEngine) -> None:
                 update_account_name( wallet_instance, acc, acc_map )
                 acc_dash_state = AccDashState.ACC_DASH
 
+            elif acc_dash_state == AccDashState.ACCOUNT_TRANSACTIONS:
+                acc_transactions = wallet_instance.get_acc_transactions(acc.id)
+                display_transactions(acc_transactions)
+                acc_dash_state = AccDashState.ACC_DASH
+
+            elif acc_dash_state == AccDashState.ACCOUNT_INFO:
+                acc_with_bal: FundedAccDict = {
+                    **acc.to_dict(),
+                    "acc_bal": wallet_instance.get_acc_bal(acc.id)
+                }
+                display_account_details(acc_with_bal)
+                acc_dash_state = AccDashState.ACC_DASH
+
+            elif acc_dash_state == AccDashState.ACCOUNT_REPORTS:
+                print(acc)
+                acc_dash_state = AccDashState.ACC_DASH
+
             elif acc_dash_state == AccDashState.DEACTIVATE:
                 try:
                     wallet_instance.deactivate_acc(acc.id)
@@ -196,7 +204,7 @@ def manage_account(wallet_instance: WalletEngine) -> None:
 
                 break
 
-            # Add account transactions and account details, activity/summary(overview of transaction by account, expense by category etc)
+            # activity/summary(overview of transaction by account, expense by category etc)
 
             elif acc_dash_state == AccDashState.RETURN:
                 break
@@ -204,6 +212,19 @@ def manage_account(wallet_instance: WalletEngine) -> None:
             else:
                 print("Invalid selection. try again...")
                 acc_dash_state = AccDashState.ACC_DASH
+
+def show_active_accounts(wallet_instance: WalletEngine) -> None:
+    active_accounts = wallet_instance.get_active_accounts()
+    funded_active_accounts: list[FundedAccDict] = [
+        {
+            **acc.to_dict(), 
+            "acc_bal": wallet_instance.get_acc_bal(acc.id)
+        }
+        for acc in active_accounts
+    ]
+    
+    display_active_accounts(funded_active_accounts)
+
 
 def show_reports(wallet_instance: WalletEngine) -> None:
     (

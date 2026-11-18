@@ -23,5 +23,7 @@ class AccDashState(Enum):
     WITHDRAWAL = "withdrawal"
     UPDATE_ACC = "update_acc"
     ACCOUNT_TRANSACTIONS = "account_transactions"
+    ACCOUNT_INFO = "account_info"
+    ACCOUNT_REPORTS = "account_reports"
     DEACTIVATE = "deactivate"
     RETURN = "return"

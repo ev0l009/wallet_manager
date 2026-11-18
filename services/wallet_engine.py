@@ -517,6 +517,18 @@ class WalletEngine:
             )
         )
 
+    def get_acc_transactions(self, acc_id:str) -> list[Transaction]:
+        effective_transactions=self.get_effective_transactions()
+
+        return [
+            trx
+            for trx in effective_transactions
+            if (
+                trx.source_acc_id == acc_id or 
+                trx.target_acc_id == acc_id
+            )
+        ]
+
     def get_reports(self) -> tuple[ int, int, int, dict[str, int] ]:
         effective_transactions = self.get_effective_transactions()
         total_income = sum([
@@ -539,7 +551,12 @@ class WalletEngine:
                     expenses_by_category[trx.category] = trx.amount
                 expenses_by_category[trx.category] += trx.amount
 
-        return total_income, total_expense, net_delta, expenses_by_category
+        return (
+            total_income, 
+            total_expense, 
+            net_delta, 
+            expenses_by_category
+        )
 
 
     def _validate_chronological_balances(

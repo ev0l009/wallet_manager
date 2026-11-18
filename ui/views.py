@@ -66,6 +66,18 @@ def display_active_accounts(
 
     print("  " + "—" * 90 + "\n")
 
+def display_account_details(acc: FundedAccDict) -> None:
+    print("\n  ACCOUNT DETAILS")
+    print("  " + "—" * 32)
+    print(f"  ID:        {acc['id']}")
+    print(f"  Name:      {acc['acc_name'].title()}")
+    print(f"  Type:      {acc['acc_type'].capitalize()}")
+    print(f"  Status:    {acc['acc_status'].upper()}")
+    print(f"  Created:   {acc['created_at']}")
+    print("  " + "—" * 32)
+    print(f"  Balance:   ${acc['acc_bal']:,.2f}")
+    print("  " + "—" * 32 + "\n")
+
 
 def display_acc_bal(acc_bal: int) -> None:
     """Displays the available balance of an account.

@@ -1,12 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from ui.menus import (
-    get_acc_type, 
-    select_acc,
-    get_exp_category
-)
-
 from utils.validators import (
     get_valid_acc_name,
 )

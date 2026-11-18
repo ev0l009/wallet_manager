@@ -25,9 +25,6 @@ from handlers import (
     show_reports
 )
 
-from ui.menu_states import AccDashState
-
-from exceptions.errors import WalletError
 
 from utils.logger import configure_logger
 

@@ -490,7 +490,7 @@ class WalletEngine:
 
         for trx in effective_transactions:
             if trx.transaction_type == TrxType.WITHDRAW.value:
-                if trx.category not  in expenses_by_category:
+                if trx.category not in expenses_by_category:
                     expenses_by_category[trx.category] = trx.amount
                 expenses_by_category[trx.category] += trx.amount
 

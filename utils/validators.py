@@ -11,7 +11,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 def convert_to_kobo(user_input: str) -> int:
-    if not isinstance(user_input, str):
+    if not isinstance(user_input, str): # type: ignore
         raise InvalidAmountError()
 
     value = user_input.strip()
@@ -55,9 +55,9 @@ def get_valid_acc_name(raw_name: str, existing_names: dict[str, str]) -> str:
             "Account name cannot be empty."
         )
 
-    if not 4 <= len(cleaned_name) <= 20:
+    if len(cleaned_name) < 4:
         raise InvalidAccountNameError(
-            "Account name must contain between 4 and 20 characters."
+            "Account name must contain at least 4 characters."
         )
 
     normalized_name = cleaned_name.casefold()

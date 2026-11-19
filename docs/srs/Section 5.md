@@ -23,6 +23,7 @@
 ### Business Logic Layer (`services/`)
 
 - Implements business workflows and cross-entity domain validation (`_validate_loaded_data()`, `_validate_chronological_balances()`).
+- Enforces the single chronological balance rule via `validate_account_timeline(account_id, transactions)`, called by all write operations and delegated to per account during startup by `_validate_chronological_balances()`.
 - Evaluates account, transaction, monetary, category, and date constraints.
 - Coordinates account creation, renaming, deactivation, and reactivation.
 - Coordinates income, expense, transfer, and reversal operations.
@@ -37,8 +38,9 @@
 - Handles JSON deserialization and serialization (`load_app_data()` and save operations).
 - Executes staging-file writes (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`).
 - Validates the structural integrity of loaded JSON data and delegates record reconstruction to `models/` (`from_dict()`).
-- Translates filesystem and serialization failures into controlled persistence exceptions (`StorageWriteError`).
+- Translates filesystem, serialization, and read-side integrity failures into controlled persistence exceptions (`StorageReadError` and `StorageWriteError` defined in `exceptions.py`).
 - Must not import or depend on `services/` or `ui/` (imports only `models/` and `exceptions.py`).
+
 
 ### Dependency Direction
 

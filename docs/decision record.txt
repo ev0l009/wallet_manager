@@ -1,0 +1,1 @@
+ADR — Storage Abstraction: Storage Protocol deliberately omitted in v1, because single-user JSON persistence (file_manager/) can be tested directly via temporary paths (tmp_path) or mocked I/O without interface boilerplate; revisit when migrating to SQLite, supporting multiple storage backends, or crossing the 5,000-transaction scaling cap.

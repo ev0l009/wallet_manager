@@ -5,19 +5,19 @@
 ### Data Extraction (Deserialization)
 
 - Upon application startup, `file_manager/` (`load_app_data()`) first removes any stale `.storage.json.tmp` file (logging a warning) and checks whether `.storage.json` exists:
-  - **Missing file (first run):** Returns a clean empty state without failing.
+  - **Missing file (first run):** Returns a clean empty `WalletEngineData` state without failing.
   - **Existing file:** Reads the file using Python's native `json.load()` into native Python dictionaries and lists.
 - `file_manager/` validates the top-level JSON structure (confirming expected root keys and list containers for `accounts` and `transactions`).
-- Valid records are reconstructed into domain entities by delegating to `Account.from_dict()` and `Transaction.from_dict()` in `models/`.
+- Valid records are reconstructed into domain entities by delegating to `Account.from_dict()` and `Transaction.from_dict()` in `models/`, while indexing `accounts` into `WalletEngineData["accounts"]` (`dict[str, Account]`).
 - Integer monetary values (minor units) must remain Python `int` values after deserialization (rejecting floats or booleans).
-- Malformed JSON, structural errors, or invalid single-record fields (such as invalid account statuses, transaction classifications, identifiers, or monetary values detected by `from_dict()`) raise a controlled data-integrity error and halt startup so the app never falls back to an empty state.
-- Cross-entity reference checks (such as validating `source_acc_id`, `target_acc_id`, and `reverses_transaction_id`) and chronological running-balance checks (`BR-10`) are then executed in `services/` (`_validate_loaded_data()` and `_validate_chronological_balances()`).
+- Malformed JSON, OS read errors, invalid root structure, duplicate account IDs encountered while building the `accounts` dictionary, or invalid single-record fields detected by `from_dict()` (such as invalid account statuses, transaction classifications, identifiers, or monetary values) raise **`StorageReadError`** and halt startup so the app never falls back to an empty state.
+- Cross-entity reference checks (duplicate transaction IDs detected via a seen-IDs set, valid `source_acc_id`, `target_acc_id`, and `reverses_transaction_id` links, and no double-reversals) are executed in `services/` (`_validate_loaded_data()`), followed by `_validate_chronological_balances()`, which runs `validate_account_timeline()` across every loaded account—raising **`StorageReadError`** and halting startup if any violation is found.
 
 ### Data Serialization
 
 - When application state changes, `file_manager/` converts domain entities via `Account.to_dict()` and `Transaction.to_dict()` and serializes the complete proposed state using Python's native `json.dump()` method.
 - Both `accounts` and `transactions` are serialized as JSON lists so entity IDs are stored once inside each object without duplicate dictionary keys.
-- JSON serialization uses a consistent indentation format (`indent=2`) to preserve human readability at our v1 personal scale (capped at 5,000 transactions).
+- JSON serialization uses a consistent indentation format (`indent=2`) to preserve human readability at our v1 personal-scale advisory target of **up to ~5,000 transactions** (~1–2 MB); exceeding this target or seeing noticeable save latency triggers migrating `file_manager/` to SQLite.
 - Monetary values must be serialized as JSON integers (minor units) rather than floating-point numbers.
 - Historical transactions are never modified and retain their original identifiers and immutable attributes on every serialization pass.
 
@@ -43,18 +43,19 @@ Atomic replacement alone does not guarantee complete durability against every po
 ## 6.3 In-Memory State Consistency and Transaction Commit
 
 - The system must never mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
-- Before executing any state-changing operation (creating, renaming, deactivating, or reactivating an account, or recording a new transaction or reversal), `services/` must create an independent proposed copy of the current application state.
-- Proposed account metadata/status updates and append-only transaction ledger additions must be applied exclusively to this proposed state (account balances are derived from the ledger rather than mutated on `Account` entities).
-- `file_manager/` must serialize and persist the complete proposed state using the staging-file (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`) strategy.
-- Only after successful completion of the file replacement operation may `services/` commit the proposed state as the new active in-memory application state.
+- Before executing any state-changing operation (creating, renaming, deactivating, or reactivating an account, or recording a new transaction or reversal), `services/` creates a shallow copy of the `WalletEngineData` containers (`dict(accounts)` and `list(transactions)`) as an independent proposed state.
+- Proposed changes are applied exclusively to this proposed state: new transactions are appended to the proposed list, and modified `Account` entities (such as on rename, deactivation, or reactivation) are **replaced with new `Account` instances** in the proposed dictionary rather than mutated in place (account balances remain derived from the ledger rather than stored on `Account`).
+- `file_manager/` serializes and persists the complete proposed state using the staging-file (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`) strategy.
+- Only after successful completion of the file replacement operation may `services/` commit the proposed `WalletEngineData` as the new active in-memory application state.
 - If persistence fails at any stage:
-  - The proposed state must be discarded.
-  - The original in-memory state must remain unchanged.
-  - The previously persisted `.storage.json` file must remain unchanged where failure occurs before successful replacement.
-  - A `StorageWriteError` must be raised.
-  - `ui/` must catch the error and report the failure without displaying a success confirmation.
+  - The proposed state is discarded.
+  - The original in-memory containers and existing `Account` instances remain completely unchanged.
+  - The previously persisted `.storage.json` file remains unchanged where failure occurs before successful replacement.
+  - A `StorageWriteError` is raised.
+  - `ui/` catches `StorageWriteError` and reports the failure without displaying a success confirmation.
 
 This process ensures that the application never exposes an unpersisted state change or financial transaction as a successful operation.
+
 
 ## 6.4 Transaction Guarantee and Failure Boundaries
 

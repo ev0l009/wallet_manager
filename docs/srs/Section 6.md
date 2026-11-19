@@ -12,6 +12,10 @@
 - Integer monetary values (minor units) must remain Python `int` values after deserialization (rejecting floats or booleans).
 - Malformed JSON, OS read errors, invalid root structure, duplicate account IDs encountered while building the `accounts` dictionary, or invalid single-record fields detected by `from_dict()` (such as invalid account statuses, transaction classifications, identifiers, or monetary values) raise **`StorageReadError`** and halt startup so the app never falls back to an empty state.
 - Cross-entity reference checks (duplicate transaction IDs detected via a seen-IDs set, valid `source_acc_id`, `target_acc_id`, and `reverses_transaction_id` links, and no double-reversals) are executed in `services/` (`_validate_loaded_data()`), followed by `_validate_chronological_balances()`, which runs `validate_account_timeline()` across every loaded account—raising **`StorageReadError`** and halting startup if any violation is found.
+- OS read failures or malformed JSON syntax (`json.JSONDecodeError`) raise **`StorageReadError`** in `file_manager/` and halt startup.
+- Invalid root JSON structure (in `file_manager/`), invalid single-record fields or missing keys in `from_dict()` (in `models/`), and duplicate transaction IDs or broken cross-entity references in `_validate_loaded_data()` (in `services/`) raise **`DataIntegrityError`** and halt startup.
+- Any account whose historical running balance dips below `0` in `_validate_chronological_balances()` (`validate_account_timeline()` in `services/`) raises **`NegativeBalanceError`** (a `DataIntegrityError` subclass carrying `account_id`, `date`, and `balance`) and halts startup.
+
 
 ### Data Serialization
 

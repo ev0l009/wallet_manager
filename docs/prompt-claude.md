@@ -1326,38 +1326,3 @@ It is done when you can reasonably demonstrate:
 > **I can explain what I built, why I designed it this way, demonstrate that it works, explain how it fails, show how I tested it, maintain it, and defend the important engineering decisions.**
 
 And the independent assessment agrees that the remaining issues are reasonable for the scope.
-
----
-
-# 17. Your First Deliverable
-
-**Stop here.**
-
-Do not start implementing yet.
-
-Your immediate task is **Gate 1 — Requirements & Design**.
-
-Prepare your Engineering Design Submission.
-
-I am intentionally not giving you:
-
-- classes
-- functions
-- modules
-- database schema
-- directory tree
-- design patterns
-- persistence implementation
-- CLI architecture
-
-Those are yours.
-
-Once your design is ready, **do not paste it here for me to approve**.
-
-Take it through the external assessment workflow using the assessment prompt we've established.
-
-Then bring the **assessment debrief and review history** back here.
-
-I'll use that to determine what we challenge next.
-
-**The project has officially begun.**

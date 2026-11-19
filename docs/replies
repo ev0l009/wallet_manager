@@ -1,0 +1,13 @@
+Transactions  remain the single source of truth .
+
+* Single source of truth: Account balances will always be derived directly from transactions (sum of credits minus debits). There will be no stored or cached balance field on the Account entity, so the two can never drift out of sync.
+* Spec cleanup: I will remove the cached balance attribute from the Account entity and update Section 6.3 to describe transaction mutations rather than direct account balance mutations.
+* Performance trade-off: Deriving balances means summing an account's transactions on every call to get balance. At our current scope (personal/small-scale transaction volume, indexed by account_id), this query is fast and keeps the design simple and bug-free without cache invalidation complexity.
+
+
+
+Transactions will be strictly append-only (immutable), and I'll remove any mention of editing or deleting them. It's in scope for version 1
+
+* Correction mechanism (in scope for v1): Users cannot edit or delete a past transaction. The only way to undo a mistake is a reversal, which is recorded as a new offsetting transaction linked to the original (leaving the original record untouched for a full audit trail).
+* Preventing negative balances: Before creating a reversal, the business logic checks that the account is active and has enough balance to absorb the reversal (current_balance - reversal_amount >= 0). If reversing an income transaction would push the balance below zero, the reversal is rejected.
+* Transfer reversals (Section 6.4): Reversing a transfer creates offsetting transactions on both accounts atomically and requires both accounts to be active and have sufficient funds so neither goes negative. (Each transaction can only be reversed once.)

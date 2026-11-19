@@ -29,7 +29,7 @@ class Transaction:
     id: str
     amount: int
     transaction_date: date
-    transaction_type: str
+    transaction_type: str 
     category: str | None = None
     desc: str | None = None
     source_acc_id: str | None = None

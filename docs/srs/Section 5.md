@@ -228,7 +228,6 @@ json
       "id": "acc_aBc12",
       "acc_name": "First Bank",
       "acc_type": "BANK",
-      "acc_bal": 1050000,
       "status": "ACTIVE",
       "created_at": "2026-11-10T09:30:00"
     },
@@ -236,7 +235,6 @@ json
       "id": "acc_cBg5i",
       "acc_name": "Savings Acc",
       "acc_type": "SAVINGS",
-      "acc_bal": 500000,
       "status": "ACTIVE",
       "created_at": "2026-11-10T10:00:00"
     }

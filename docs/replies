@@ -1,13 +1,76 @@
-Transactions  remain the single source of truth .
+my sample JSON had acc_aBc12 in source_acc_id instead of target_acc_id, which would subtract ₦250 twice instead of refunding it.
+How I'm fixing it:
+• Swap source_acc_id and target_acc_id on reversals: A REVERSAL will mirror the original transaction by flipping its account fields so money flows in the exact opposite direction:
+	• Reversing an expense/withdrawal (source = A, target = null) creates a reversal with source = null, target = A (money flows back into A).
+	• Reversing income/deposit (source = null, target = A) creates a reversal with source = A, target = null (money flows out of A).
+	• Reversing a transfer (source = A, target = B) creates a reversal with source = B, target = A (money flows from B back to A).
+• Why this is cleaner: Every transaction row is self-contained. Balance calculation uses one consistent rule (credits where target_acc_id == acc minus debits where source_acc_id == acc) without needing to look up parent transactions, while reverses_transaction_id enforces the "reverse at most once" rule and maintains the audit link.
+Corrected sample JSON:
+json
+{
+  "id": "trx_8kLm2",
+  "amount": 25000,
+  "trx_type": "REVERSAL",
+  "category": null,
+  "desc": "Correction of incorrectly recorded expense",
+  "source_acc_id": null,
+  "target_acc_id": "acc_aBc12",
+  "transaction_date": "2026-11-11",
+  "reverses_transaction_id": "trx_123Df"
+}
 
-* Single source of truth: Account balances will always be derived directly from transactions (sum of credits minus debits). There will be no stored or cached balance field on the Account entity, so the two can never drift out of sync.
-* Spec cleanup: I will remove the cached balance attribute from the Account entity and update Section 6.3 to describe transaction mutations rather than direct account balance mutations.
-* Performance trade-off: Deriving balances means summing an account's transactions on every call to get balance. At our current scope (personal/small-scale transaction volume, indexed by account_id), this query is fast and keeps the design simple and bug-free without cache invalidation complexity.
+
+
+Applying current_balance - reversal_amount >= 0 to every reversal would wrongly block a user at ₦0 from reversing an expense that adds money back.
+Updated reversal check rule (based on direction of funds):
+Only the account losing money (source_acc_id on the reversal) needs a balance check:
+• Reversing an expense / withdrawal (source = null, target = A): Money flows into A. No balance check is needed—only verify that A is active and the original transaction hasn't been reversed yet.
+• Reversing income / deposit (source = A, target = null): Money flows out of A. Require A to be active and balance(A) - amount >= 0.
+• Reversing a transfer (source = B, target = A): Money flows out of B and into A. Require both A and B to be active, and require balance(B) - amount >= 0 (the recipient of the original transfer must still have enough funds to send back).
+In short: whenever a reversal has a source_acc_id (an outflow), check that source_acc_id has enough balance; when source_acc_id is null (an inflow), skip the balance check.
 
 
 
-Transactions will be strictly append-only (immutable), and I'll remove any mention of editing or deleting them. It's in scope for version 1
+I'll define all three startup cases explicitly so a failed load can never lead to data loss.
+How startup handles each case:
+1. No storage file exists (first run): Initialize with a clean empty state (accounts = [], transactions = []) and write .storage.json atomically on the first save (or initial setup).
+2. Valid storage file exists: Delete any stale .storage.json.tmp (with a warning), parse .storage.json, and validate all records via Account.from_dict() and Transaction.from_dict() into memory.
+3. Unreadable or invalid file (corrupted JSON, OS permission error, or invalid record data): Fail fast and halt startup with a clear error message telling the user the file cannot be read or is corrupted. Never fall back to an empty in-memory state.
+The one outcome that must be impossible:
+• Overwriting a broken/unreadable .storage.json with an empty state on the next save. Because our persistence layer rewrites the whole file on every save, falling back to an empty list after a failed load would permanently wipe the user's real file the next time they save anything. Halting on load failure makes that impossible.
 
-* Correction mechanism (in scope for v1): Users cannot edit or delete a past transaction. The only way to undo a mistake is a reversal, which is recorded as a new offsetting transaction linked to the original (leaving the original record untouched for a full audit trail).
-* Preventing negative balances: Before creating a reversal, the business logic checks that the account is active and has enough balance to absorb the reversal (current_balance - reversal_amount >= 0). If reversing an income transaction would push the balance below zero, the reversal is rejected.
-* Transfer reversals (Section 6.4): Reversing a transfer creates offsetting transactions on both accounts atomically and requires both accounts to be active and have sufficient funds so neither goes negative. (Each transaction can only be reversed once.)
+
+
+my implementation uses a strict chronological running-balance rule for BR-10. Here is how that applies to each point:
+• BR-10 ("Balance as of when?"): BR-10 simulates the chronological running balance sorted by (transaction_date, insertion_order) with the new transaction included, and rejects the write if the running balance drops below ₦0 at any point in time.
+	• In your scenario: Recording a ₦5,000 expense dated Nov 10 when Nov 10's balance was ₦0 is rejected, because the account would have a -₦5,000 balance from Nov 10 until the Nov 15 income arrives.
+	• Why: This guarantees the ledger never models spending money before the account actually had funds on that date.
+• Could our app produce that sample file? No—if the sample is ordered chronologically, having an expense appear before the income that funds it would violate BR-10 (since the balance would go negative first). I will fix the sample data so the funding income is dated on or before the expense.
+• Does list position mean anything? In .storage.json, list position preserves insertion order (when each record was added). Final total balance doesn't depend on list order, but running-balance checks use insertion order as a tie-breaker.
+• Same-date ordering: Transactions on the same transaction_date are ordered by insertion order (their position in the append-only list).
+• Should the loader re-check balances? No—the loader validates schema and data integrity via from_dict() (valid types, statuses, positive amounts, and valid IDs), while BR-10 is enforced on every write. Blocking startup on business-rule balance checks could lock a user out of their file instead of letting them inspect or reverse a bad entry.
+
+
+
+ I'll add strict field validation to Transaction, remove the duplicate account ID in JSON, and define ID collision handling:
+
+1. Required vs. Null Fields by Transaction Type
+
+
+| trx_type | source_acc_id | target_acc_id | reverses_transaction_id | Extra Invariant |
+| :--- | :--- | :--- | :--- |
+| INCOME | null | Required | null | amount > 0 |
+| EXPENSE | Required | null | null | amount > 0 |
+| TRANSFER | Required | Required | null | source_acc_id != target_acc_id, amount > 0 |
+| REVERSAL | Set if reversing INCOME or TRANSFER; else null | Set if reversing EXPENSE or TRANSFER; else null | Required | At least one account set; source != target; amount > 0 |
+
+
+2. Where Enforcement Lives
+
+• Single-record invariants (above table): Enforced inside the Transaction model (__post_init__ / from_dict() in models/), so an invalid Transaction can never be constructed in memory or loaded from JSON.
+• Cross-record invariants (checking that referenced accounts exist/are active, or that reverses_transaction_id matches the original amount and hasn't been reversed twice): Enforced in services/.
+
+3. Duplicate Account IDs & ID Collisions
+
+• Removing duplicate IDs in JSON: I will store "accounts" as a JSON list ([ {"id": "acc_...", ...} ]) so each account ID appears only once, and index it into a dict in memory on load (failing startup if duplicate IDs exist in the file).
+• ID generation & collisions: IDs are generated using random tokens (secrets.token_urlsafe  with acc_ / trx_ prefixes). Before inserting into the in-memory dict, the service checks if new_id in store and regenerates a new ID on collision so an existing account or transaction can never be overwritten.

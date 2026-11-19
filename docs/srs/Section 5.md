@@ -21,12 +21,11 @@
 - Calculates ledger-derived balances.
 - Implements transaction searching, filtering, sorting, pagination, and financial reporting.
 - Manages proposed in-memory state changes before persistence.
-- Depends on an abstract storage contract rather than a concrete JSON implementation.
 - Must not perform direct filesystem operations.
 
 **Domain entities:**
 
-- `Account` represents a financial account, including its identity, name, account type, creation timestamp, status, and cached balance.
+- `Account` represents a financial account, including its identity, name, account type, creation timestamp and status.
 - `Transaction` represents an immutable financial event, including its identity, classification, amount, account references, date, and optional metadata.
 
 These entities represent application data and domain concepts. They are not merely collections of validators.
@@ -36,12 +35,12 @@ Validation rules may be implemented through entity methods, dedicated validation
 ### Data Access Layer (`file_manager/`)
 
 - Isolates all disk input/output operations.
-- Implements the abstract storage interface defined by the Business Logic Layer.
 - Handles JSON deserialization and serialization.
 - Executes staging-file writes and atomic replacement.
 - Validates the structural integrity of loaded persistence data.
 - Translates filesystem and serialization failures into controlled persistence exceptions.
-- Must not import or depend on Business Logic or Presentation modules.
+- Must not import or depend on Business Logic.
+- May import only models/ and exceptions.py (never services/), using from_dict() / to_dict().
 
 ### Dependency Direction
 
@@ -61,10 +60,6 @@ text
         (wallet_engine.py)
               |
               v
-       STORAGE INTERFACE
-        (storage protocol)
-              ^
-              |
       DATA ACCESS LAYER
           (storage.py)
               |

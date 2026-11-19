@@ -4,19 +4,23 @@
 
 ### Data Extraction (Deserialization)
 
-- Upon application startup, the Data Access Layer must use Python's native `json.load()` function to read the local storage file.
-- The raw JSON payload must be parsed into native Python dictionaries and lists.
-- The loaded data must be validated against the expected storage structure before being exposed to the Business Logic Layer.
-- Valid records must be reconstructed into their corresponding domain entities or controlled application data structures.
-- Integer monetary values must remain integers after deserialization.
-- Invalid persisted account statuses, transaction classifications, identifiers, monetary values, or transaction references must trigger controlled data-integrity failures.
+- Upon application startup, `file_manager/` (`load_app_data()`) first removes any stale `.storage.json.tmp` file (logging a warning) and checks whether `.storage.json` exists:
+  - **Missing file (first run):** Returns a clean empty state without failing.
+  - **Existing file:** Reads the file using Python's native `json.load()` into native Python dictionaries and lists.
+- `file_manager/` validates the top-level JSON structure (confirming expected root keys and list containers for `accounts` and `transactions`).
+- Valid records are reconstructed into domain entities by delegating to `Account.from_dict()` and `Transaction.from_dict()` in `models/`.
+- Integer monetary values (minor units) must remain Python `int` values after deserialization (rejecting floats or booleans).
+- Malformed JSON, structural errors, or invalid single-record fields (such as invalid account statuses, transaction classifications, identifiers, or monetary values detected by `from_dict()`) raise a controlled data-integrity error and halt startup so the app never falls back to an empty state.
+- Cross-entity reference checks (such as validating `source_acc_id`, `target_acc_id`, and `reverses_transaction_id`) and chronological running-balance checks (`BR-10`) are then executed in `services/` (`_validate_loaded_data()` and `_validate_chronological_balances()`).
 
 ### Data Serialization
 
-- When application state changes, the Data Access Layer must serialize the complete proposed state using Python's native `json.dump()` method.
-- JSON serialization must use a consistent indentation format to preserve human readability.
-- Monetary values must be serialized as JSON integers rather than floating-point numbers.
-- Historical transactions must retain their original identifiers and immutable attributes during serialization.
+- When application state changes, `file_manager/` converts domain entities via `Account.to_dict()` and `Transaction.to_dict()` and serializes the complete proposed state using Python's native `json.dump()` method.
+- Both `accounts` and `transactions` are serialized as JSON lists so entity IDs are stored once inside each object without duplicate dictionary keys.
+- JSON serialization uses a consistent indentation format (`indent=2`) to preserve human readability at our v1 personal scale (capped at 5,000 transactions).
+- Monetary values must be serialized as JSON integers (minor units) rather than floating-point numbers.
+- Historical transactions are never modified and retain their original identifiers and immutable attributes on every serialization pass.
+
 
 ## 6.2 Atomic Write Fail-Safe Strategy
 
@@ -39,33 +43,33 @@ Atomic replacement alone does not guarantee complete durability against every po
 ## 6.3 In-Memory State Consistency and Transaction Commit
 
 - The system must never mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
-- Before executing a financial transaction, the Business Logic Layer must create an independent proposed copy of the current application state.
-- Proposed account balance mutations and transaction ledger additions must be applied exclusively to this proposed state.
-- The Data Access Layer must serialize and persist the complete proposed state using the staging-file and atomic replacement strategy.
-- Only after successful completion of the file replacement operation may the Business Logic Layer commit the proposed state as the new active in-memory application state.
+- Before executing any state-changing operation (creating, renaming, deactivating, or reactivating an account, or recording a new transaction or reversal), `services/` must create an independent proposed copy of the current application state.
+- Proposed account metadata/status updates and append-only transaction ledger additions must be applied exclusively to this proposed state (account balances are derived from the ledger rather than mutated on `Account` entities).
+- `file_manager/` must serialize and persist the complete proposed state using the staging-file (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`) strategy.
+- Only after successful completion of the file replacement operation may `services/` commit the proposed state as the new active in-memory application state.
 - If persistence fails at any stage:
   - The proposed state must be discarded.
   - The original in-memory state must remain unchanged.
-  - The previously persisted JSON state must remain unchanged where failure occurs before successful replacement.
-  - A `DatabaseWriteException` must be raised.
-  - The UI must report the failure without displaying a transaction success confirmation.
+  - The previously persisted `.storage.json` file must remain unchanged where failure occurs before successful replacement.
+  - A `StorageWriteError` must be raised.
+  - `ui/` must catch the error and report the failure without displaying a success confirmation.
 
-This process ensures that the application does not expose an unpersisted financial transaction as a successful operation.
+This process ensures that the application never exposes an unpersisted state change or financial transaction as a successful operation.
 
 ## 6.4 Transaction Guarantee and Failure Boundaries
 
 The application implements a single-file transactional persistence strategy rather than a full database transaction mechanism.
 
-The logical transaction consists of proposed account balance mutations and corresponding ledger additions, persisted together through one complete JSON state replacement.
+The logical transaction consists of proposed account state updates and append-only ledger additions (including `INCOME`, `EXPENSE`, `TRANSFER`, and `REVERSAL` entries), persisted together through one complete JSON state replacement.
 
 **The system guarantees that:**
 
 - The active in-memory application state remains unchanged until successful file replacement.
-- The existing JSON file remains intact if serialization or staging-file writing fails before replacement.
+- The existing `.storage.json` file remains intact if serialization, staging-file writing, or `fsync` fails before `os.replace()`.
 - A successful replacement makes the complete new JSON state visible as the active persisted state.
 - A failed replacement prevents the proposed in-memory state from being committed.
-- Account balance mutations and transaction ledger additions are committed together.
-- Transfer reversals affecting two accounts are persisted as one complete state update.
+- Account status/metadata changes and transaction ledger additions are committed together in one atomic file replacement.
+- Transfer reversals affecting two accounts are persisted atomically as a single offsetting `REVERSAL` transaction (with flipped `source_acc_id` and `target_acc_id`) within one complete state update.
 
 **The system does not guarantee:**
 
@@ -73,27 +77,28 @@ The logical transaction consists of proposed account balance mutations and corre
 - Multi-process concurrency control.
 - Protection against every possible hardware failure.
 - Guaranteed recovery from every operating-system crash.
-- Automatic rollback after a replacement that has already succeeded.
+- Automatic rollback after an atomic file replacement has already succeeded.
 
-These capabilities are outside the current single-process JSON persistence architecture.
+These capabilities are outside the current single-process JSON persistence architecture (capped at 5,000 transactions).
+
 
 ## 6.5 Persistence Scalability Constraints
 
 - The application will use one structured JSON file as its exclusive persistence mechanism.
 - The system is designed for a single-user, single-process environment with moderate transaction volumes.
-- The accepted operational capacity for the current release is up to **10,000 historical transaction records**.
+- The accepted operational capacity for the current release is up to **5,000 historical transaction records**.
 - Transaction retrieval, compound filtering, sorting, and pagination will be performed in application memory after loading the JSON dataset.
 - Pagination will limit the number of records returned to the presentation layer but will not eliminate the computational cost of loading and processing the underlying transaction collection.
 - The application must monitor the number of historical transaction records stored in the JSON ledger.
 
 **Capacity warning:**
 
-- When the transaction count reaches 9,000 records, the system must display a capacity warning informing the user that the application is approaching its supported transaction limit.
+- When the transaction count reaches 4,000 records, the system must display a capacity warning informing the user that the application is approaching its supported transaction limit.
 
 **Maximum capacity enforcement:**
 
 - The application must enforce a maximum capacity of 10,000 historical transaction records.
-- Once the ledger reaches 10,000 records, the system must reject any new INCOME, EXPENSE, TRANSFER, or REVERSAL operation that would increase the count beyond the supported limit.
+- Once the ledger reaches 5,000 records, the system must reject any new INCOME, EXPENSE, TRANSFER, or REVERSAL operation that would increase the count beyond the supported limit.
 - Capacity validation must occur before proposed account balance mutations, ledger modifications, or persistence operations.
 - Existing in-memory and persisted states must remain unchanged following capacity rejection.
 - The user must receive a clear notification explaining that transaction capacity has been reached and that a persistence architecture reassessment is required.

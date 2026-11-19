@@ -7,14 +7,22 @@
 - Manages terminal rendering and command-line display.
 - Collects synchronous string inputs using Python's `input()` utility.
 - Displays validation errors, transaction confirmations, account information, and reports.
-- Invokes application operations through the Business Logic Layer.
+- Invokes application operations through `services/`.
 - Must not execute financial calculations or access JSON storage files directly.
 - Must not contain independent implementations of business validation rules.
 - Must catch expected application exceptions at appropriate user-operation boundaries.
 
-### Business Logic Layer (`models/` and `services/`)
+### Core Domain Layer (`models/` and `exceptions.py`)
 
-- Implements business workflows and domain validation.
+- Has zero outward dependencies and may be imported by `ui/`, `services/`, and `file_manager/`.
+- Defines domain entities (`Account`, `Transaction`), enums, and custom application errors (e.g., `StorageWriteError`).
+- `Account` represents a financial account, including its identity, name, account type, creation timestamp, and status (with no stored balance).
+- `Transaction` represents an immutable financial event, including its identity, classification, amount, account references, date, and optional metadata.
+- Entities represent core domain concepts and enforce their own single-record field invariants (including `from_dict()` / `to_dict()` serialization), while cross-entity rules live in `services/`.
+
+### Business Logic Layer (`services/`)
+
+- Implements business workflows and cross-entity domain validation (`_validate_loaded_data()`, `_validate_chronological_balances()`).
 - Evaluates account, transaction, monetary, category, and date constraints.
 - Coordinates account creation, renaming, deactivation, and reactivation.
 - Coordinates income, expense, transfer, and reversal operations.
@@ -23,62 +31,50 @@
 - Manages proposed in-memory state changes before persistence.
 - Must not perform direct filesystem operations.
 
-**Domain entities:**
-
-- `Account` represents a financial account, including its identity, name, account type, creation timestamp and status.
-- `Transaction` represents an immutable financial event, including its identity, classification, amount, account references, date, and optional metadata.
-
-These entities represent application data and domain concepts. They are not merely collections of validators.
-
-Validation rules may be implemented through entity methods, dedicated validation functions, or application services depending on their scope.
-
 ### Data Access Layer (`file_manager/`)
 
 - Isolates all disk input/output operations.
-- Handles JSON deserialization and serialization.
-- Executes staging-file writes and atomic replacement.
-- Validates the structural integrity of loaded persistence data.
-- Translates filesystem and serialization failures into controlled persistence exceptions.
-- Must not import or depend on Business Logic.
-- May import only models/ and exceptions.py (never services/), using from_dict() / to_dict().
+- Handles JSON deserialization and serialization (`load_app_data()` and save operations).
+- Executes staging-file writes (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`).
+- Validates the structural integrity of loaded JSON data and delegates record reconstruction to `models/` (`from_dict()`).
+- Translates filesystem and serialization failures into controlled persistence exceptions (`StorageWriteError`).
+- Must not import or depend on `services/` or `ui/` (imports only `models/` and `exceptions.py`).
 
 ### Dependency Direction
 
 The logical dependency direction is:
-
-text
 
 ```text
              USER
               |
               v
       PRESENTATION LAYER
-           (ui.py)
+            (ui/)
               |
               v
-      BUSINESS LOGIC LAYER
-        (wallet_engine.py)
-              |
-              v
-      DATA ACCESS LAYER
-          (storage.py)
+      BUSINESS LOGIC LAYER       +--------------------+
+          (services/) ---------> |  DOMAIN & ERRORS   |
+
+              |                  |   (models/,        |
+              v                  |   exceptions.py)   |
+      DATA ACCESS LAYER          +--------------------+
+        (file_manager/) ------------------^
               |
               v
        LOCAL JSON STORAGE
 ```
 
-The concrete storage implementation is injected into the Business Logic Layer during application initialization.
-
 The application entry point (`main.py`) acts as the composition root responsible for connecting the required components.
 
 **Dependency constraints:**
 
-- `ui.py` may import and call `wallet_engine.py`.
-- `wallet_engine.py` may depend on the abstract storage interface.
-- `storage.py` implements the storage interface without importing the Business Logic Layer.
+- `models/` and `exceptions.py` form the dependency-free Domain base and may be imported by `ui/`, `services/`, and `file_manager/`.
+- `ui/` may import and call `services/` (never `file_manager/` directly).
+- `services/` may import and call `file_manager/` (e.g., `load_app_data()` and save operations).
+- `file_manager/` implements persistence using `models/` (`from_dict()` / `to_dict()`) and `exceptions.py` without ever importing `services/` or `ui/`.
 - `main.py` imports and initializes the concrete application components.
-- The Data Access Layer must never call Business Logic operations directly.
-- No layer may bypass the established dependency boundaries to access another layer's internal implementation details.
+- No layer may bypass these boundaries to access another layer's internal implementation details.
+
 
 ## 5.2 Project Structure
 
@@ -169,11 +165,10 @@ Its properties include:
 - `id`: Automatically generated unique account identifier.
 - `acc_name`: Validated account name.
 - `acc_type`: Supported account type.
-- `acc_bal`: Cached integer Kobo balance.
 - `status`: ACTIVE or INACTIVE.
 - `created_at`: Automatically generated creation timestamp.
 
-Account construction must not allow users or external application components to arbitrarily supply an account ID, initial balance, or status.
+Account construction must not allow users or external application components to arbitrarily supply an account ID.
 
 **Illustrative construction:**
 
@@ -186,7 +181,7 @@ account = Account(
 )
 ```
 
-The entity or its factory must internally generate the account ID, timestamp, ACTIVE status, and zero-Kobo balance.
+The entity or its factory must internally generate the account ID, timestamp and ACTIVE status.
 
 ### Transaction Entity
 

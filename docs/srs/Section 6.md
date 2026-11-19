@@ -80,7 +80,8 @@ The logical transaction consists of proposed account state updates and append-on
 - Guaranteed recovery from every operating-system crash.
 - Automatic rollback after an atomic file replacement has already succeeded.
 
-These capabilities are outside the current single-process JSON persistence architecture (capped at 5,000 transactions).
+These capabilities are outside the current single-process JSON persistence architecture (designed for an advisory target of up to ~5,000 transactions, not a hard runtime limit).
+
 
 
 ## 6.5 Persistence Scalability Constraints

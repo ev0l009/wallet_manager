@@ -323,4 +323,10 @@ Additional rules:
 - Reversal records must be included in account-level activity and transaction history.
 - Reversal creation must comply with BR-09 and the maximum transaction capacity.
 
+### BR-23: Reversal rules:
+- Target eligibility: Only INCOME, EXPENSE, and TRANSFER transactions can be reversed. Reversing a REVERSAL is rejected (DataIntegrityError / domain error), and each original transaction can be reversed at most once (checked via reverses_transaction_id).
+- Account & direction rules: A REVERSAL copies amount == original.amount and swaps source_acc_id and target_acc_id from the original transaction (INCOME reversal has source = original.target, target = None; EXPENSE reversal has source = None, target = original.source; TRANSFER reversal has source = original.target, target = original.source).
+- Account status & timeline check: Every referenced account (source_acc_id and/or target_acc_id) must be active, and validate_account_timeline() is run on every affected account with the candidate reversal included (rejecting with NegativeBalanceError if reversing an INCOME or TRANSFER would push an account below 0 at any date).
+
+
 ---

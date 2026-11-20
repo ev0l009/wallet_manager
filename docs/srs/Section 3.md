@@ -267,7 +267,7 @@ Additional rules:
 - Transactions dated on the current date or any previous valid calendar date must be accepted.
 - Date comparisons must use calendar dates rather than timezone-aware timestamps.
 
-## 2.5 Expense Category Rules
+## 2.5 Expense Category Rules # update this whole section
 
 ### BR-20: Centralized Expense Category Definition
 
@@ -288,6 +288,10 @@ Additional rules:
 - INCOME, TRANSFER, and REVERSAL transactions must not independently introduce expense categories.
 - Invalid expense categories must raise `InvalidCategoryError`.
 - Category validation must be performed before proposed application state is mutated or persisted.
+
+• TrxType values: "income", "expense", "transfer", "reversal".
+• ExpCatOpts values (in utils/constants.py / models/): "food", "bills", "transport", "airtime", "health", "shopping", "entertainment", "others" (updating the BR-20 list wording from Utilities/Healthcare/Other to Airtime/Health/Others so prose and enum match 1:1).
+• Category constraint: TrxType.EXPENSE requires a valid ExpCatOpts value; TrxType.INCOME, TrxType.TRANSFER, and TrxType.REVERSAL must have category = None (null in JSON), raising InvalidCategoryError otherwise.
 
 ## 2.6 Transaction Reversal Rules
 
@@ -323,7 +327,7 @@ Additional rules:
 - Reversal records must be included in account-level activity and transaction history.
 - Reversal creation must comply with BR-09 and the maximum transaction capacity.
 
-### BR-23: Reversal rules:
+### BR-24: Reversal rules: # update this whole section
 - Target eligibility: Only INCOME, EXPENSE, and TRANSFER transactions can be reversed. Reversing a REVERSAL is rejected (DataIntegrityError / domain error), and each original transaction can be reversed at most once (checked via reverses_transaction_id).
 - Account & direction rules: A REVERSAL copies amount == original.amount and swaps source_acc_id and target_acc_id from the original transaction (INCOME reversal has source = original.target, target = None; EXPENSE reversal has source = None, target = original.source; TRANSFER reversal has source = original.target, target = original.source).
 - Account status & timeline check: Every referenced account (source_acc_id and/or target_acc_id) must be active, and validate_account_timeline() is run on every affected account with the candidate reversal included (rejecting with NegativeBalanceError if reversing an INCOME or TRANSFER would push an account below 0 at any date).

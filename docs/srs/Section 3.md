@@ -149,8 +149,9 @@ The conversion function must return an integer Kobo value or raise `InvalidAmoun
 - The ceiling applies to individual transactions rather than cumulative account balances or aggregate ledger values.
 - Account balances and aggregate financial totals may exceed the individual transaction ceiling through multiple valid transactions.
 
-### BR-10: Balance Sufficiency (Overdraft Prevention)
+### BR-10: Balance Invariant
 
+### BR-10.1: Balance Sufficiency (Overdraft Prevention)
 - For EXPENSE and TRANSFER operations, the system must verify that the designated source account has a ledger-derived balance equal to or greater than the intended transaction amount.
 - If the transaction amount exceeds the available balance:
   - The operation must be aborted.
@@ -158,12 +159,26 @@ The conversion function must return an integer Kobo value or raise `InvalidAmoun
   - No transaction record may be appended.
   - No persistence operation may be performed.
   - An `InsufficientFundsError` must be raised.
+  
+### BR-10.2: Balance Invariant
+
+- Every account's closing balance at the end of every calendar day (opening_balance + day_inflows - day_outflows) must remain greater than or equal to zero (>= 0 minor units).
+
+- **Single implementation:** Enforced exclusively by validate_account_timeline(account_id: str, transactions: list[Transaction]) -> None in services/.
+
+- **Ordering rule:** All transactions referencing account_id are sorted by (`transaction_date`, `0` if `target_acc_id == account_id` else `1`, `insertion_order`) so same-day inflows (`target_acc_id == account_id`) are applied before same-day outflows (`source_acc_id == account_id`), using insertion order as a deterministic tie-breaker.
+
+- **Enforcement points:**
+
+	- **On writes (EXPENSE, TRANSFER, REVERSAL):** `services/`validates the candidate ledger for every affected account (`source_acc_id` and/or `target_acc_id`) before persistence; any day dropping below `0` raises `NegativeBalanceError(account_id, date, balance)` and aborts the write.
+
+	- **On startup (WalletEngine.load_data()):** `_validate_chronological_balances()` runs `validate_account_timeline()` across every loaded account and converts any `NegativeBalanceError` into `DataIntegrityError` (preserving `account_id`, `date`, and `balance`), halting startup.
 
 ### BR-11: Financial State Authority and Balance Consistency
 
 - The transaction ledger shall serve as the authoritative source of financial truth for all account balances.
 - The `acc_bal` attribute stored within each account shall serve as a cached representation of its current calculated balance.
-- Every successful INCOME, EXPENSE, TRANSFER, or REVERSAL operation must update the affected account balance and append the corresponding transaction record as a single atomic logical operation.
+- Every successful `INCOME`, `EXPENSE`, `TRANSFER`, or `REVERSAL` operation must update the affected account balance and append the corresponding transaction record as a single atomic logical operation.
 - The system must guarantee that stored account balances remain mathematically consistent with the cumulative net effect of historical transaction records.
 - If a discrepancy is detected between a stored account balance and its ledger-derived balance, the ledger-derived value must take precedence.
 - The stored balance must be recalculated and corrected through the established persistence mechanism.
@@ -190,16 +205,16 @@ The general balance calculation is:
 
 Where:
 
-- Total Income represents effective INCOME transactions credited to the account.
-- Total Expenses represents effective EXPENSE transactions debited from the account.
-- Total Transfers In represents TRANSFER transactions received by the account.
-- Total Transfers Out represents TRANSFER transactions sent from the account.
+- Total Income represents effective `INCOME` transactions credited to the account.
+- Total Expenses represents effective `EXPENSE` transactions debited from the account.
+- Total Transfers In represents `TRANSFER` transactions received by the account.
+- Total Transfers Out represents `TRANSFER` transactions sent from the account.
 - Reversal movements represent the exact inverse effects of their original transactions.
 
 Additional rules:
 
 - Newly created accounts must begin with a balance of zero Kobo.
-- Initial funding must be recorded through a valid INCOME transaction.
+- Initial funding must be recorded through a valid `INCOME` transaction.
 - Inactive accounts must retain their historical balances and transaction associations.
 - The calculated balance must serve as the authoritative reference during balance reconciliation, overdraft validation, and account lifecycle validation.
 - An account must not be assigned an arbitrary initial balance outside the transaction ledger.
@@ -207,7 +222,7 @@ Additional rules:
 ### BR-12: Balance Reconciliation
 
 - The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
-- Reconciliation must account for all INCOME, EXPENSE, TRANSFER, and REVERSAL transactions associated with each account.
+- Reconciliation must account for all `INCOME`, `EXPENSE`, `TRANSFER`, and `REVERSAL` transactions associated with each account.
 - Original transactions that have been reversed must not contribute their original financial effect independently of their reversal.
 - The process must identify discrepancies between stored balances and ledger-derived balances.
 - Any discrepancy must be corrected using the ledger-derived value.
@@ -225,14 +240,14 @@ Additional rules:
 
 - The system must verify the existence of both source and destination accounts.
 - The operation must fail if either account ID does not exist in the loaded application state.
-- The system must block transfers if either account has INACTIVE status.
+- The system must block transfers if either account has `INACTIVE` status.
 
 ### BR-15: Transfer Quantification and Global Constraints
 
 - All transfer amounts must comply with BR-06, BR-07, BR-08, and BR-09.
 - Transfer amounts must be stored as integer Kobo.
 - The same transaction amount must be debited from the source and credited to the destination.
-- TRANSFER transactions must have a null category field.
+- `TRANSFER` transactions must have a null category field.
 
 ### BR-16: Asset Sufficiency (Overdraft Enforcement)
 
@@ -247,17 +262,17 @@ Additional rules:
 
 ### BR-17: Date Format and Structural Integrity
 
-- The system must accept transaction dates exclusively in the ISO 8601 calendar date format: YYYY-MM-DD.
+- The system must accept transaction dates exclusively in the ISO 8601 calendar date format: `YYYY-MM-DD`.
 - The CLI must not require users to provide hours, minutes, seconds, timezone offsets, or timezone indicators.
 - Valid date inputs must be parsed using Python's `datetime.date.fromisoformat()` method.
-- The system must enforce the exact YYYY-MM-DD input structure before parsing.
+- The system must enforce the exact `YYYY-MM-DD` input structure before parsing.
 - Inputs using alternative ISO 8601 representations must be rejected.
 - Invalid inputs must raise `InvalidDateError`.
 
 ### BR-18: Calendar Consistency Checks
 
 - The system must perform real-calendar validation on all transaction date inputs.
-- Non-existent calendar dates, such as 2026-02-30 or 2026-11-31, must be rejected.
+- Non-existent calendar dates, such as `2026-02-30` or `2026-11-31`, must be rejected.
 - Only valid calendar dates may proceed to future-date validation and transaction processing.
 
 ### BR-19: Future-Date Restriction
@@ -285,13 +300,13 @@ Additional rules:
 - The collection must be treated as application-controlled configuration.
 - The UI must obtain available category options from the Business Logic Layer rather than maintaining an independent category list.
 - EXPENSE transactions must contain a valid category from the configured collection.
-- INCOME, TRANSFER, and REVERSAL transactions must not independently introduce expense categories.
+- `INCOME`, `TRANSFER`, and RE`VERSAL transactions must not independently introduce expense categories.
 - Invalid expense categories must raise `InvalidCategoryError`.
 - Category validation must be performed before proposed application state is mutated or persisted.
 
 • TrxType values: "income", "expense", "transfer", "reversal".
-• ExpCatOpts values (in utils/constants.py / models/): "food", "bills", "transport", "airtime", "health", "shopping", "entertainment", "others" (updating the BR-20 list wording from Utilities/Healthcare/Other to Airtime/Health/Others so prose and enum match 1:1).
-• Category constraint: TrxType.EXPENSE requires a valid ExpCatOpts value; TrxType.INCOME, TrxType.TRANSFER, and TrxType.REVERSAL must have category = None (null in JSON), raising InvalidCategoryError otherwise.
+• ExpCatOpts values (in `utils/constants.py / models/`): `"food"`, `"bills"`, `"transport"`, `"airtime"`, `"health"`, "shopping", "entertainment", "others" (updating the BR-20 list wording from Utilities/Healthcare/Other to Airtime/Health/Others so prose and enum match 1:1).
+• Category constraint: `TrxType.EXPENSE` requires a valid ExpCatOpts value; `TrxType.INCOME`, `TrxType.TRANSFER`, and `TrxType.REVERSAL` must have `category = None` (null in JSON), raising `InvalidCategoryError` otherwise.
 
 ## 2.6 Transaction Reversal Rules
 

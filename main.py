@@ -25,7 +25,6 @@ from handlers import (
     show_reports
 )
 
-
 from utils.logger import configure_logger
 
 # Initialize the application-wide logger.

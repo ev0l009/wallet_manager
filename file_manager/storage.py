@@ -8,7 +8,6 @@ file replacement when saving application state.
 import json
 import os
 from pathlib import Path
-from typing import Any
 
 from models.account import Account
 from models.transaction import Transaction
@@ -88,7 +87,7 @@ def load_app_data() -> WalletEngineData:
 
     try:
         with open(FILE_PATH, "r", encoding="utf-8") as file:
-            raw_data: Any = json.load(file)
+            raw_data: JSONData = json.load(file)
 
     except FileNotFoundError:
         # A missing file represents a new application installation.
@@ -112,16 +111,16 @@ def load_app_data() -> WalletEngineData:
         ) from err
 
     try:
-        if not isinstance(raw_data, dict):
+        if not isinstance(raw_data, dict): # type: ignore
             raise ValueError("The root JSON value must be an object.")
 
         raw_accounts = raw_data.get("accounts")
         raw_transactions = raw_data.get("transactions")
 
-        if not isinstance(raw_accounts, dict):
+        if not isinstance(raw_accounts, dict): # type: ignore
             raise ValueError("'accounts' must be a JSON object.")
 
-        if not isinstance(raw_transactions, list):
+        if not isinstance(raw_transactions, list): # type: ignore
             raise ValueError("'transactions' must be a JSON array.")
 
         loaded_data: WalletEngineData = {
@@ -131,7 +130,7 @@ def load_app_data() -> WalletEngineData:
 
         # Delegate account reconstruction to Account.from_dict().
         for acc_id, account_data in raw_accounts.items():
-            if not isinstance(account_data, dict):
+            if not isinstance(account_data, dict): # type: ignore
                 raise ValueError(
                     f"Account '{acc_id}' must be a JSON object."
                 )
@@ -147,7 +146,7 @@ def load_app_data() -> WalletEngineData:
 
         # Delegate transaction reconstruction to Transaction.from_dict().
         for transaction_data in raw_transactions:
-            if not isinstance(transaction_data, dict):
+            if not isinstance(transaction_data, dict): # type: ignore
                 raise ValueError(
                     "Each transaction must be a JSON object."
                 )

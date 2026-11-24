@@ -481,7 +481,7 @@ class WalletEngine:
         """Persist proposed state before committing it in memory."""
 
         save_app_data(proposed_data)
-        self.data = proposed_data
+        self.data = proposed_data 
 
     @staticmethod
     def _build_effective_transactions(

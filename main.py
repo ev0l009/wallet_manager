@@ -65,7 +65,7 @@ def wallet_runner() -> None:
             current_state = MenuState.DASHBOARD
 
         elif current_state == MenuState.LIST_ACCOUNTS:
-
+ 
             show_active_accounts(wallet)
             current_state = MenuState.DASHBOARD
 

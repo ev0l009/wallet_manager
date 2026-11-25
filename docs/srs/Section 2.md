@@ -4,10 +4,10 @@
 
 - **Req-1: Account Creation & Metadata**
   - The system must allow users to create multiple concurrent financial accounts.
-  - Every account must have a unique system-generated identifier (ID), a user-defined account name, an account type, a creation timestamp, an initial balance of zero Kobo, and an account status.
-  - Supported account types are BANK, SAVINGS, CASH, and MOBILE.
-  - Every newly created account must have an initial status of ACTIVE.
-  - Account identifiers, timestamps, statuses, and initial balances must be assigned internally by the application.
+  - Every account must have a unique system-generated identifier (ID), a user-defined account name, an account type, a creation timestamp, an initial balance of zero Kobo (not cached or an internal attribute as it is ledger derived), and an account status.
+  - Supported account types are `BANK`, `SAVINGS`, `CASH`, and `MOBILE`.
+  - Every newly created account must have an initial status of `ACTIVE`.
+  - Account identifiers, timestamps and statuses must be assigned internally by the application.
 - **Req-2: Account Retrieval (View & Inspect)**
   - The system must provide a default list view of all active accounts belonging to the user.
   - The system must provide a separate option for retrieving inactive accounts.
@@ -23,7 +23,6 @@
   - The system must allow users to reactivate an inactive account, changing its status to ACTIVE and restoring it to the default active accounts list.
   - Deactivation is permitted only when the account's ledger-derived balance is exactly zero Kobo.
   - Reactivation must not alter the account's historical transactions or balance.
-  - Reactivation must verify that the account name does not conflict with another existing account.
 
 ## 1.2 Income
 

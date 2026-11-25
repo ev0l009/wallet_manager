@@ -25,7 +25,7 @@ from file_manager.storage import (
     save_app_data,
     load_app_data
 )
- 
+  
 from utils.validators import (
     convert_to_kobo,
     get_valid_date
@@ -89,7 +89,7 @@ class WalletEngine:
         """Create and register a new account."""
 
         normalized_name = acc_name.strip().casefold()
-
+ 
         for account in self.data["accounts"].values():
             if account.acc_name.casefold() == normalized_name:
                 raise DuplicateAccountNameError(
@@ -437,16 +437,9 @@ class WalletEngine:
         proposed_data = deepcopy(self.data)
         account = proposed_data["accounts"][acc_id]
 
-        account_name = account.acc_name.casefold()
-
         for other_account in proposed_data["accounts"].values():
             if other_account.id == acc_id:
                 continue
-
-            if other_account.acc_name.casefold() == account_name:
-                raise DuplicateAccountNameError(
-                    f"An account named '{account.acc_name}' already exists."
-                )
 
         account.reactivate()
 

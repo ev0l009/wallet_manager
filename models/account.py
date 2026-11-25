@@ -4,7 +4,7 @@
 Defines the Account entity, enforcing account-level invariants,
 lifecycle transitions, and explicit dictionary serialization.
 """
-
+ 
 from datetime import datetime, timezone
 from typing import Self
 

@@ -1,30 +1,51 @@
+## 6\. Persistence Architecture and Integrity Guard
+
+Revised SRS — Section 6: Persistence Architecture and Integrity Guard
+
 # 6\. Persistence Architecture and Integrity Guard
 
 ## 6.1 Serialization Lifecycle (`json.dump` / `json.load`)
 
 ### Data Extraction (Deserialization)
 
-- Upon application startup, `file_manager/` (`load_app_data()`) first removes any stale `.storage.json.tmp` file (logging a warning) and checks whether `.storage.json` exists:
+- Upon application startup, `file_manager/` (`load_app_data()`) first checks for and removes any stale `.storage.json.tmp` file, logging a warning when one is found.
+- The application then checks whether `storage.json` exists:
   - **Missing file (first run):** Returns a clean empty `WalletEngineData` state without failing.
   - **Existing file:** Reads the file using Python's native `json.load()` into native Python dictionaries and lists.
-- `file_manager/` validates the top-level JSON structure (confirming expected root keys and list containers for `accounts` and `transactions`).
-- Valid records are reconstructed into domain entities by delegating to `Account.from_dict()` and `Transaction.from_dict()` in `models/`, while indexing `accounts` into `WalletEngineData["accounts"]` (`dict[str, Account]`).
-- Integer monetary values (minor units) must remain Python `int` values after deserialization (rejecting floats or booleans).
-- Malformed JSON, OS read errors, invalid root structure, duplicate account IDs encountered while building the `accounts` dictionary, or invalid single-record fields detected by `from_dict()` (such as invalid account statuses, transaction classifications, identifiers, or monetary values) raise **`StorageReadError`** and halt startup so the app never falls back to an empty state.
-- Cross-entity reference checks (duplicate transaction IDs detected via a seen-IDs set, valid `source_acc_id`, `target_acc_id`, and `reverses_transaction_id` links, and no double-reversals) are executed in `services/` (`_validate_loaded_data()`), followed by `_validate_chronological_balances()`, which runs `validate_account_timeline()` across every loaded account—raising **`StorageReadError`** and halting startup if any violation is found.
-- OS read failures or malformed JSON syntax (`json.JSONDecodeError`) raise **`StorageReadError`** in `file_manager/` and halt startup.
-- Invalid root JSON structure (in `file_manager/`), invalid single-record fields or missing keys in `from_dict()` (in `models/`), and duplicate transaction IDs or broken cross-entity references in `_validate_loaded_data()` (in `services/`) raise **`DataIntegrityError`** and halt startup.
-- Any account whose historical running balance dips below `0` in `_validate_chronological_balances()` (`validate_account_timeline()` in `services/`) raises **`NegativeBalanceError`** (a `DataIntegrityError` subclass carrying `account_id`, `date`, and `balance`) and halts startup.
-
+- `file_manager/` validates the top-level JSON structure, confirming the presence and expected types of the `accounts` and `transactions` containers.
+- Account records are reconstructed into domain entities by delegating to `Account.from_dict()` and indexed into `WalletEngineData["accounts"]` (`dict[str, Account]`), using account identifiers as dictionary keys.
+- Transaction records are reconstructed into domain entities by delegating to `Transaction.from_dict()` and stored in `WalletEngineData["transactions"]` (`list[Transaction]`).
+- The persisted JSON structure must contain an account dictionary and a transaction list.
+- Integer monetary values (minor units) must remain Python `int` values after deserialization, rejecting floats and booleans.
+- Account records must not contain stored or cached balance attributes.
+- Malformed JSON, OS read errors, invalid root structure, duplicate account IDs encountered while building the accounts dictionary, or invalid individual record fields detected by `from_dict()` must prevent application startup.
+- Filesystem and JSON syntax failures must raise `StorageReadError`.
+- Invalid root structures, invalid entity fields, duplicate identifiers, and other structural integrity violations must raise `DataIntegrityError`.
+- Cross-entity reference checks are executed in `services/` through `_validate_loaded_data()`.
+- These checks must include:
+  - Duplicate transaction IDs, detected using a set of previously encountered transaction identifiers.
+  - Valid `source_acc_id` and `target_acc_id` references.
+  - Valid account references for every transaction.
+  - Valid transaction classifications and category combinations.
+  - Compliance with account lifecycle and historical reference constraints.
+- Following successful structural and cross-entity validation, `_validate_chronological_balances()` must validate the historical financial integrity of every loaded account.
+- Any account whose historical running balance becomes negative must cause startup validation to fail.
+- A chronological balance violation must raise `NegativeBalanceError` (a `DataIntegrityError` subclass carrying the affected account ID, transaction date, and calculated balance).
+- All integrity violations must halt startup rather than silently replacing invalid persisted data with an empty application state.
 
 ### Data Serialization
 
-- When application state changes, `file_manager/` converts domain entities via `Account.to_dict()` and `Transaction.to_dict()` and serializes the complete proposed state using Python's native `json.dump()` method.
-- Both `accounts` and `transactions` are serialized as JSON lists so entity IDs are stored once inside each object without duplicate dictionary keys.
-- JSON serialization uses a consistent indentation format (`indent=2`) to preserve human readability at our v1 personal-scale advisory target of **up to ~5,000 transactions** (~1–2 MB); exceeding this target or seeing noticeable save latency triggers migrating `file_manager/` to SQLite.
-- Monetary values must be serialized as JSON integers (minor units) rather than floating-point numbers.
-- Historical transactions are never modified and retain their original identifiers and immutable attributes on every serialization pass.
-
+- When application state changes, `file_manager/` converts domain entities through `Account.to_dict()` and `Transaction.to_dict()`.
+- The complete proposed application state must be serialized using Python's native `json.dump()` method.
+- Accounts must be serialized as a JSON object keyed by their unique account identifiers.
+- Transactions must be serialized as a JSON list.
+- Account identifiers must be stored once within each account record and must correspond to their dictionary keys.
+- JSON serialization must use a consistent indentation format (`indent=2`) to preserve human readability.
+- The application targets approximately 5,000 historical transaction records for its intended personal-scale operational workload.
+- Exceeding this target or experiencing noticeable serialization and retrieval latency must trigger an architecture reassessment.
+- Monetary values must be serialized as JSON integers (Kobo) rather than floating-point numbers.
+- Account records must not contain balance fields.
+- Historical transactions must never be modified and must retain their original identifiers and immutable attributes during subsequent serialization operations.
 
 ## 6.2 Atomic Write Fail-Safe Strategy
 
@@ -32,6 +53,7 @@
 - Instead, the complete proposed application state must first be written into a temporary staging file named `.storage.json.tmp`.
 - The staging file must be created in the same directory as the destination `storage.json` file.
 - After the staging file has been completely written and flushed, the Data Access Layer must execute `os.replace()` to atomically replace the active storage file.
+- The staging-file write process must use `flush()` and `os.fsync()` before replacement.
 - The replacement operation must occur only after successful serialization and staging-file writing.
 
 **Atomic replacement guarantees:**
@@ -39,42 +61,56 @@
 - Both files reside on the same filesystem.
 - Readers will observe either the previous complete JSON file or the newly replaced JSON file, subject to the supported filesystem's atomic replacement guarantees.
 - The destination file will not be exposed as a partially serialized JSON document during a successful atomic replacement.
+- A failed staging-file write or replacement operation must not result in the proposed application state being committed to active memory.
 
 **Durability limitation:**
 
-Atomic replacement alone does not guarantee complete durability against every possible operating-system crash or power failure. Stronger crash-durability guarantees would require additional filesystem synchronization measures, including appropriate use of `fsync()`.
+Atomic replacement alone does not guarantee complete durability against every possible operating-system crash or power failure.
+
+Stronger crash-durability guarantees would require additional filesystem synchronization measures, including appropriate directory synchronization after replacement.
 
 ## 6.3 In-Memory State Consistency and Transaction Commit
 
 - The system must never mutate the active in-memory application state before successfully persisting the corresponding changes to disk.
-- Before executing any state-changing operation (creating, renaming, deactivating, or reactivating an account, or recording a new transaction or reversal), `services/` creates a shallow copy of the `WalletEngineData` containers (`dict(accounts)` and `list(transactions)`) as an independent proposed state.
-- Proposed changes are applied exclusively to this proposed state: new transactions are appended to the proposed list, and modified `Account` entities (such as on rename, deactivation, or reactivation) are **replaced with new `Account` instances** in the proposed dictionary rather than mutated in place (account balances remain derived from the ledger rather than stored on `Account`).
-- `file_manager/` serializes and persists the complete proposed state using the staging-file (`.storage.json.tmp` with `flush()` + `os.fsync()`) and atomic replacement (`os.replace()`) strategy.
+- Before executing any state-changing operation (creating, renaming, deactivating, or reactivating an account, or recording a new INCOME, EXPENSE, or TRANSFER transaction), `services/` must create a proposed application state.
+- The proposed state must contain independent copies of the `WalletEngineData` containers:
+  - `dict(accounts)`
+  - `list(transactions)`
+- Proposed changes must be applied exclusively to this proposed state.
+- New transactions must be appended to the proposed transaction list.
+- Modified Account entities, such as renamed, deactivated, or reactivated accounts, must be replaced with new Account instances in the proposed account dictionary rather than mutated in place.
+- Account balances must not be updated or stored because they are derived dynamically from the transaction ledger.
+- Counteracting transactions must be handled as ordinary new transactions and appended to the proposed transaction list using their appropriate classifications.
+- All applicable business validations, including chronological balance validation, must be completed against the proposed state before persistence.
+- `file_manager/` must serialize and persist the complete proposed state using the staging-file (`.storage.json.tmp` with `flush()` and `os.fsync()`) and atomic replacement (`os.replace()`) strategy.
 - Only after successful completion of the file replacement operation may `services/` commit the proposed `WalletEngineData` as the new active in-memory application state.
-- If persistence fails at any stage:
-  - The proposed state is discarded.
-  - The original in-memory containers and existing `Account` instances remain completely unchanged.
-  - The previously persisted `.storage.json` file remains unchanged where failure occurs before successful replacement.
-  - A `StorageWriteError` is raised.
-  - `ui/` catches `StorageWriteError` and reports the failure without displaying a success confirmation.
 
-This process ensures that the application never exposes an unpersisted state change or financial transaction as a successful operation.
+If persistence fails at any stage:
 
+- The proposed state must be discarded.
+- The original in-memory containers and existing Account instances must remain unchanged.
+- The previously persisted `storage.json` file must remain unchanged where failure occurs before successful replacement.
+- A `StorageWriteError` must be raised.
+- `ui/` must catch `StorageWriteError` and report the failure without displaying a success confirmation.
+
+This process ensures that the application never exposes an unpersisted state change or financial transaction as a successfully completed operation.
 
 ## 6.4 Transaction Guarantee and Failure Boundaries
 
 The application implements a single-file transactional persistence strategy rather than a full database transaction mechanism.
 
-The logical transaction consists of proposed account state updates and append-only ledger additions (including `INCOME`, `EXPENSE`, `TRANSFER`, and `REVERSAL` entries), persisted together through one complete JSON state replacement.
+The logical transaction consists of proposed account metadata changes and append-only ledger additions, including INCOME, EXPENSE, and TRANSFER transactions, persisted together through one complete JSON state replacement.
 
 **The system guarantees that:**
 
 - The active in-memory application state remains unchanged until successful file replacement.
-- The existing `.storage.json` file remains intact if serialization, staging-file writing, or `fsync` fails before `os.replace()`.
+- The existing `storage.json` file remains intact if serialization, staging-file writing, or `fsync()` fails before `os.replace()`.
 - A successful replacement makes the complete new JSON state visible as the active persisted state.
 - A failed replacement prevents the proposed in-memory state from being committed.
-- Account status/metadata changes and transaction ledger additions are committed together in one atomic file replacement.
-- Transfer reversals affecting two accounts are persisted atomically as a single offsetting `REVERSAL` transaction (with flipped `source_acc_id` and `target_acc_id`) within one complete state update.
+- Account creation, renaming, activation/deactivation, and transaction ledger additions are committed together through one atomic file replacement.
+- Internal transfers affecting two accounts are persisted as one ordinary TRANSFER transaction within a single complete state update.
+- Counteracting transactions are persisted as ordinary transactions within the same atomic persistence mechanism.
+- Account balances are always derived from the resulting transaction ledger rather than independently mutated or persisted.
 
 **The system does not guarantee:**
 
@@ -84,34 +120,43 @@ The logical transaction consists of proposed account state updates and append-on
 - Guaranteed recovery from every operating-system crash.
 - Automatic rollback after an atomic file replacement has already succeeded.
 
-These capabilities are outside the current single-process JSON persistence architecture (designed for an advisory target of up to ~5,000 transactions, not a hard runtime limit).
-
-
+These capabilities are outside the current single-process JSON persistence architecture.
 
 ## 6.5 Persistence Scalability Constraints
 
 - The application will use one structured JSON file as its exclusive persistence mechanism.
 - The system is designed for a single-user, single-process environment with moderate transaction volumes.
-- The accepted operational capacity for the current release is up to **5,000 historical transaction records**.
+- The intended operational workload for the current release is approximately 5,000 historical transaction records.
+- The application will enforce an absolute maximum capacity of 10,000 historical transaction records.
 - Transaction retrieval, compound filtering, sorting, and pagination will be performed in application memory after loading the JSON dataset.
 - Pagination will limit the number of records returned to the presentation layer but will not eliminate the computational cost of loading and processing the underlying transaction collection.
 - The application must monitor the number of historical transaction records stored in the JSON ledger.
 
 **Capacity warning:**
 
-- When the transaction count reaches 4,000 records, the system must display a capacity warning informing the user that the application is approaching its supported transaction limit.
+- When the transaction count reaches 4,000 records, the system must display a capacity warning informing the user that the application is approaching its intended operational capacity.
+- The warning must communicate that the current JSON persistence architecture may require reassessment as the transaction history grows.
+
+**Operational capacity threshold:**
+
+- The 5,000-record threshold represents the intended operational capacity rather than an absolute transaction restriction.
+- Reaching this threshold must trigger an architecture reassessment.
+- The application may continue accepting valid transactions beyond this threshold, provided the absolute maximum capacity has not been reached.
+- Existing transaction history must remain accessible beyond the intended operational capacity.
 
 **Maximum capacity enforcement:**
 
-- The application must enforce a maximum capacity of 10,000 historical transaction records.
-- Once the ledger reaches 5,000 records, the system must reject any new INCOME, EXPENSE, TRANSFER, or REVERSAL operation that would increase the count beyond the supported limit.
-- Capacity validation must occur before proposed account balance mutations, ledger modifications, or persistence operations.
+- The application must enforce an absolute maximum capacity of 10,000 historical transaction records.
+- Once the ledger contains 10,000 records, the system must reject any new INCOME, EXPENSE, or TRANSFER operation that would increase the count beyond the supported maximum.
+- Capacity validation must occur before proposed application state mutations, ledger modifications, or persistence operations.
 - Existing in-memory and persisted states must remain unchanged following capacity rejection.
 - The user must receive a clear notification explaining that transaction capacity has been reached and that a persistence architecture reassessment is required.
+- Account creation, renaming, deactivation, and reactivation must not be restricted by transaction capacity because these operations do not increase the historical transaction count.
 
 **Future migration path:**
 
-- Transaction volumes exceeding the supported capacity will require an explicit architecture reassessment.
-- SQLite is identified as the preferred migration path because it provides structured queries, indexing, and transactional capabilities.
+- Transaction volumes approaching or exceeding the intended operational capacity will require an explicit architecture reassessment.
+- SQLite is identified as a potential migration path because it provides structured queries, indexing, and database-level transactional capabilities.
+- Migration must preserve historical transaction records, account identifiers, account references, and monetary precision.
 
 ---

@@ -118,11 +118,15 @@ JSON does not provide native database indexing, query optimization, transactiona
 - **Ambiguity:** The original architecture describes communication between the Business Logic and Data Access Layers without defining dependency ownership.
 - **Resolution:** The application will use one-way runtime interaction:
   - Presentation Layer calls the Business Logic Layer.
-  - Business Logic Layer uses an abstract storage interface.
-  - Data Access Layer implements that interface.
-  - The application entry point connects the concrete storage implementation to the Business Logic Layer.
+  - Business Logic Layer directly imports and uses the persistence operations provided by the Data Access Layer.
+  - Data Access Layer handles JSON file operations independently of business workflows.
+  - The application entry point initializes and connects the application components.
 - The Data Access Layer must not import or depend on the Business Logic Layer or Presentation Layer.
-- Dependency injection will allow business operations to be tested without physical disk access.
+- The Business Logic Layer must not perform direct filesystem operations.
+- The Presentation Layer must not access the Data Access Layer directly.
+- The Data Access Layer must remain responsible for JSON serialization, deserialization, and persistence operations.
+- Business operations must remain testable independently of terminal interaction and should use controlled test storage or temporary files where persistence testing is required.
+- No abstract storage interface or alternative storage implementation mechanism is required.
 
 ### ASM-08: Compensating Transaction Corrections
 

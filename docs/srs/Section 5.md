@@ -100,9 +100,10 @@ text
 
 - `models/` and `exceptions/` form the dependency-free Domain base and must not depend on outer application layers.
 - `ui/` may import and call `services/` but must never access `file_manager/` directly.
-- `services/` must depend on the abstract storage interface rather than the concrete JSON storage implementation.
-- `file_manager/` implements the abstract storage contract and uses `models/` and `exceptions/` without importing `services/` or `ui/`.
-- `main.py` imports and initializes the concrete application components and injects the storage implementation into the Business Logic Layer.
+- `services/` imports and calls the concrete persistence functions in file_manager/storage.py.
+- `file_manager/`  handles JSON loading, serialization, and file persistence.
+- `file_manager/` must not import or depend on services/ or ui/.
+- `main.py` initializes the application components.
 - No layer may bypass these boundaries to access another layer's internal implementation details.
 
 ## 5.2 Project Structure
@@ -135,7 +136,6 @@ wallet_manager/
 ├── file_manager/               # Data Access Tier
 │   ├── __init__.py
 │   ├── storage.py              # JSON persistence implementation
-│   └── storage_interface.py    # Abstract storage contract
 │
 ├── exceptions/                 # Application Exception Hierarchy
 │   ├── __init__.py
@@ -176,8 +176,7 @@ wallet_manager/
 - `wallet_engine.py`: Coordinates application workflows, account ID generation, cross-entity validation, chronological balance validation, and state transitions.
 - `reporting.py`: Calculates financial summaries and account activity reports using ledger-derived values.
 - `query_service.py`: Implements transaction retrieval, filtering, sorting, and pagination.
-- `storage_interface.py`: Defines the abstract persistence contract used by the Business Logic Layer.
-- `storage.py`: Implements JSON loading, serialization, and atomic file replacement.
+- `storage.py`: Implements JSON loading, deserialization, serialization, and atomic file replacement.
 - `errors.py`: Defines the common application exception hierarchy.
 - `validators.py`: Implements reusable monetary and date validators.
 - `constants.py`: Stores centrally defined expense categories and application constants.
@@ -351,30 +350,3 @@ json
 The JSON structure is illustrative. Actual account and transaction identifiers must be generated dynamically rather than copied from the example.
 
 ---
-
-## Additional consistency notes
-
-There are four things worth highlighting before we move on.
-
-### 1\. Account construction now has a clear responsibility boundary
-
-The service generates the ID, checks uniqueness, and supplies it to the Account constructor.
-
-The Account entity remains responsible for its own structural integrity, but not identifier generation.
-
-### 2\. Storage dependency direction
-
-I've aligned Section 5 with AMB-07 from Section 4.
-
-The Business Logic Layer depends on the abstract storage contract, while the concrete JSON implementation is injected through `main.py`.
-
-This avoids coupling your business logic directly to the JSON implementation.
-
-### 3\. The JSON example now demonstrates transfer correction
-
-The example includes:
-
-- An initial transfer from First Bank to Savings.
-- A subsequent transfer in the opposite direction to counteract the original.
-
-Both records remain ordinary `TRANSFER` transactions.

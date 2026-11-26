@@ -1,5 +1,9 @@
 # 2\. Business Rules
 
+Revised SRS — Section 2: Business Rules
+
+# 2\. Business Rules
+
 ## 2.1 Accounts & Lifecycle Management
 
 ### BR-01: Structural Integrity (Naming Constraints)
@@ -15,12 +19,14 @@
 
 ### BR-02: Initial State and Typology
 
-- Every newly created account must automatically receive a unique system-generated identifier.
+- Every newly created account must receive a unique system-generated identifier.
+- Account identifiers must be generated at the service layer.
+- The service layer must check generated identifiers against existing account identifiers before proceeding with account creation.
 - UUID-based identifiers or another collision-resistant unique ID mechanism may be used.
+- The generated identifier must be supplied to the account during construction.
 - Every new account must have an initial status of ACTIVE.
-- Every new account must have an initial balance of zero Kobo.
-- Account IDs, timestamps, statuses, and initial balances must be generated or assigned internally.
-- Account constructors must not accept externally supplied IDs or arbitrary initial balances during normal account creation.
+- Account timestamps and statuses must be assigned internally by the application.
+- Accounts must be created without an assigned or stored balance attribute.
 - Account types must strictly map to the following allowed system enums:
   - CASH
   - BANK
@@ -32,7 +38,7 @@
 ### BR-03: Reference Validation
 
 - The system must reject any transaction referencing a non-existent, malformed, or invalid account ID.
-- Account references must be validated against the application’s loaded account collection.
+- Account references must be validated against the application's loaded account collection.
 - Account names must not be treated as substitutes for unique account identifiers during transaction processing.
 
 ### BR-04: Active List Isolation
@@ -40,16 +46,15 @@
 - The standard account directory must exclusively display accounts with ACTIVE status.
 - Inactive accounts must remain accessible through a dedicated inactive-account directory.
 - Users must be able to inspect inactive accounts and initiate reactivation through the account management interface.
-- Inactive accounts must retain their historical balances and transaction associations.
+- Inactive accounts must retain their historical transaction associations and ledger-derived balances.
 
 ### BR-05: Deactivation and Reactivation Isolation
 
 - An account may transition from ACTIVE to INACTIVE only if its ledger-derived balance is exactly zero Kobo.
-- The cached `acc_bal` value must not serve as the sole authority for this validation.
+- Account balances must be calculated from historical transaction records rather than retrieved from a stored or cached account balance attribute.
 - An inactive account must be blocked from participating in new financial transactions.
 - This restriction applies to incoming income, outgoing expenses, and internal transfers as either source or target.
-- Reactivation must restore the account's ACTIVE status without changing historical ledger records.
-- Reactivation must validate the account name against all other existing accounts.
+- Reactivation must restore the account's ACTIVE status without changing historical ledger records or the account's ledger-derived balance.
 - Account deactivation and reactivation must be persisted using the established atomic file replacement mechanism.
 
 ## 2.2 Monetary Values and Validation Mechanics
@@ -59,7 +64,7 @@
 - All monetary values must be internally represented and stored as integers in the smallest currency denomination, Kobo.
 - One Nigerian Naira equals 100 Kobo.
 - During input processing, valid Naira amounts must be converted into Kobo by multiplying the decimal amount by 100.
-- All financial calculations, including account balance mutations, transfers, reversals, balance reconciliation, and financial aggregations, must operate exclusively on integer Kobo values.
+- All financial calculations, including account balance calculations, transfers, chronological balance validation, and financial aggregations, must operate exclusively on integer Kobo values.
 - During data presentation, Kobo values must be converted into Naira and formatted to exactly two decimal places.
 - Binary floating-point arithmetic must be prohibited throughout all monetary processing.
 - Monetary values must never be stored as floating-point numbers in JSON.
@@ -76,7 +81,7 @@
   - Does not exceed the transaction ceiling established in BR-09.
 - Following successful validation, the Decimal amount must be multiplied by 100.
 - The resulting value must be converted into an integer representing Kobo.
-- The integer Kobo value must be used for all subsequent storage, balance mutations, transfers, reversals, and financial calculations.
+- The integer Kobo value must be used for all subsequent storage, balance calculations, transfers, and financial calculations.
 - Binary floating-point types must not be used at any stage of monetary processing.
 
 **Illustrative conversion example:**
@@ -128,7 +133,6 @@ The conversion function must return an integer Kobo value or raise `InvalidAmoun
 - Transaction amounts must be strictly positive.
 - Zero and negative monetary values must be rejected.
 - Currency symbols, commas, and other unsupported formatting characters must be rejected during input validation.
-- Reversal transaction amounts must be positive and must exactly match their original transaction amounts.
 
 ### BR-08: Numeric Precision and Scale (Currency Guard)
 
@@ -143,48 +147,47 @@ The conversion function must return an integer Kobo value or raise `InvalidAmoun
 
 - The system must reject any single transaction exceeding ₦99,999,999.99.
 - The maximum corresponding stored transaction amount is 9,999,999,999 Kobo.
-- The ceiling must be enforced before any account balance mutation or persistence operation.
+- The ceiling must be enforced before any financial state mutation or persistence operation.
 - The ceiling serves as a business and input-validation constraint intended to prevent accidental or implausible individual transaction entries.
-- The ceiling applies to INCOME, EXPENSE, TRANSFER, and REVERSAL transaction amounts.
+- The ceiling applies to INCOME, EXPENSE, and TRANSFER transaction amounts.
 - The ceiling applies to individual transactions rather than cumulative account balances or aggregate ledger values.
 - Account balances and aggregate financial totals may exceed the individual transaction ceiling through multiple valid transactions.
 
 ### BR-10: Balance Invariant
 
-### BR-10.1: Balance Sufficiency (Overdraft Prevention)
+#### BR-10.1: Balance Sufficiency (Overdraft Prevention)
+
 - For EXPENSE and TRANSFER operations, the system must verify that the designated source account has a ledger-derived balance equal to or greater than the intended transaction amount.
 - If the transaction amount exceeds the available balance:
   - The operation must be aborted.
-  - No account balance may be modified.
+  - No financial state may be modified.
   - No transaction record may be appended.
   - No persistence operation may be performed.
   - An `InsufficientFundsError` must be raised.
-  
-### BR-10.2: Balance Invariant
 
-- Every account's closing balance at the end of every calendar day (opening_balance + day_inflows - day_outflows) must remain greater than or equal to zero (>= 0 minor units).
+#### BR-10.2: Chronological Balance Invariant
 
-- **Single implementation:** Enforced exclusively by validate_account_timeline(account_id: str, transactions: list[Transaction]) -> None in services/.
-
-- **Ordering rule:** All transactions referencing account_id are sorted by (`transaction_date`, `0` if `target_acc_id == account_id` else `1`, `insertion_order`) so same-day inflows (`target_acc_id == account_id`) are applied before same-day outflows (`source_acc_id == account_id`), using insertion order as a deterministic tie-breaker.
-
-- **Enforcement points:**
-
-	- **On writes (EXPENSE, TRANSFER, REVERSAL):** `services/`validates the candidate ledger for every affected account (`source_acc_id` and/or `target_acc_id`) before persistence; any day dropping below `0` raises `NegativeBalanceError(account_id, date, balance)` and aborts the write.
-
-	- **On startup (WalletEngine.load_data()):** `_validate_chronological_balances()` runs `validate_account_timeline()` across every loaded account and converts any `NegativeBalanceError` into `DataIntegrityError` (preserving `account_id`, `date`, and `balance`), halting startup.
+- The system must guarantee that no account has a negative ledger-derived balance at any point in its transaction history.
+- The chronological balance invariant must be enforced through `_validate_chronological_balances()`.
+- The validation must consider the historical financial effects of transactions associated with each account.
+- The validation must ensure that the resulting chronological balance of every account remains greater than or equal to zero Kobo.
+- On transaction writes, the candidate ledger must be validated before persistence.
+- If the candidate transaction history violates the chronological balance invariant, the operation must be aborted.
+- Invalid financial operations must not modify account state or append transaction records.
+- During application startup, `_validate_chronological_balances()` must validate the loaded transaction history.
+- If historical transactions violate the chronological balance invariant, the application must raise `DataIntegrityError` and halt startup.
 
 ### BR-11: Financial State Authority and Balance Consistency
 
-- The transaction ledger shall serve as the authoritative source of financial truth for all account balances.
-- The `acc_bal` attribute stored within each account shall serve as a cached representation of its current calculated balance.
-- Every successful `INCOME`, `EXPENSE`, `TRANSFER`, or `REVERSAL` operation must update the affected account balance and append the corresponding transaction record as a single atomic logical operation.
-- The system must guarantee that stored account balances remain mathematically consistent with the cumulative net effect of historical transaction records.
-- If a discrepancy is detected between a stored account balance and its ledger-derived balance, the ledger-derived value must take precedence.
-- The stored balance must be recalculated and corrected through the established persistence mechanism.
-- Balance reconciliation must never modify historical transaction records.
+- The transaction ledger shall serve as the sole authoritative source of financial truth for all account balances.
+- Account entities must not maintain independently stored or cached balance attributes.
+- Account balances must be calculated dynamically from the cumulative financial effects of associated historical transactions.
+- Every successful INCOME, EXPENSE, or TRANSFER operation must persist its corresponding transaction record before the active in-memory transaction state is updated.
+- The system must guarantee that calculated account balances remain mathematically consistent with the cumulative financial effects of historical transaction records.
+- Balance calculations must never depend on an independently maintained account balance value.
+- The ledger-derived balance must serve as the authoritative reference during overdraft validation, chronological balance validation, account lifecycle validation, and financial reporting.
 
-### BR-11.1: Ledger-Derived Balance Calculation
+#### BR-11.1: Ledger-Derived Balance Calculation
 
 The system must calculate each account's authoritative balance using the cumulative net effect of all associated historical transactions.
 
@@ -193,41 +196,35 @@ The calculation must follow these rules:
 - **INCOME:** Add the transaction amount to the target account.
 - **EXPENSE:** Subtract the transaction amount from the source account.
 - **TRANSFER:** Subtract the transaction amount from the source account and add the same amount to the target account.
-- **REVERSAL of INCOME:** Subtract the original income amount from the original target account.
-- **REVERSAL of EXPENSE:** Add the original expense amount back to the original source account.
-- **REVERSAL of TRANSFER:** Add the original transfer amount back to the original source account and subtract the same amount from the original target account.
-
-A reversal must derive its account references and inverse financial effects from its original transaction. It must not accept independently supplied account references that could produce a different financial effect.
 
 The general balance calculation is:
 
-**Calculated Balance = Total Income + Total Transfers In + Expense Reversals + Transfer Reversals In − Total Expenses − Total Transfers Out − Income Reversals − Transfer Reversals Out**
+**Calculated Balance = Total Income + Total Transfers In − Total Expenses − Total Transfers Out**
 
 Where:
 
-- Total Income represents effective `INCOME` transactions credited to the account.
-- Total Expenses represents effective `EXPENSE` transactions debited from the account.
-- Total Transfers In represents `TRANSFER` transactions received by the account.
-- Total Transfers Out represents `TRANSFER` transactions sent from the account.
-- Reversal movements represent the exact inverse effects of their original transactions.
+- Total Income represents all INCOME transactions credited to the account.
+- Total Expenses represents all EXPENSE transactions debited from the account.
+- Total Transfers In represents TRANSFER transactions received by the account.
+- Total Transfers Out represents TRANSFER transactions sent from the account.
 
 Additional rules:
 
-- Newly created accounts must begin with a balance of zero Kobo.
-- Initial funding must be recorded through a valid `INCOME` transaction.
-- Inactive accounts must retain their historical balances and transaction associations.
-- The calculated balance must serve as the authoritative reference during balance reconciliation, overdraft validation, and account lifecycle validation.
+- Newly created accounts must have no assigned or stored balance.
+- The ledger-derived balance of a newly created account with no associated transactions must be zero Kobo.
+- Initial funding must be recorded through a valid INCOME transaction.
+- Inactive accounts must retain their historical transaction associations and ledger-derived balances.
+- The calculated balance must serve as the authoritative reference during overdraft validation, chronological balance validation, and account lifecycle validation.
 - An account must not be assigned an arbitrary initial balance outside the transaction ledger.
 
-### BR-12: Balance Reconciliation
+### BR-12: Ledger-Based Balance Verification
 
-- The system must provide an internal reconciliation mechanism capable of recalculating account balances using historical transaction records.
-- Reconciliation must account for all `INCOME`, `EXPENSE`, `TRANSFER`, and `REVERSAL` transactions associated with each account.
-- Original transactions that have been reversed must not contribute their original financial effect independently of their reversal.
-- The process must identify discrepancies between stored balances and ledger-derived balances.
-- Any discrepancy must be corrected using the ledger-derived value.
-- Reconciliation corrections must be persisted safely using the atomic replacement strategy.
-- Reconciliation must not generate artificial income, expense, transfer, or reversal transactions.
+- The system must validate account balances using the historical transaction ledger.
+- The chronological balance validation mechanism must ensure that no account has a negative balance at any point in its transaction history.
+- The system must not rely on stored account balance attributes or cached balance values.
+- Financial state verification must use the cumulative effects of INCOME, EXPENSE, and TRANSFER transactions.
+- Ledger validation must not modify historical transaction records.
+- Any detected historical balance inconsistency must be treated as a data integrity issue rather than silently corrected through independent account balance mutations.
 
 ## 2.3 Transfer Mechanics
 
@@ -240,21 +237,21 @@ Additional rules:
 
 - The system must verify the existence of both source and destination accounts.
 - The operation must fail if either account ID does not exist in the loaded application state.
-- The system must block transfers if either account has `INACTIVE` status.
+- The system must block transfers if either account has INACTIVE status.
 
 ### BR-15: Transfer Quantification and Global Constraints
 
 - All transfer amounts must comply with BR-06, BR-07, BR-08, and BR-09.
 - Transfer amounts must be stored as integer Kobo.
 - The same transaction amount must be debited from the source and credited to the destination.
-- `TRANSFER` transactions must have a null category field.
+- TRANSFER transactions must have a null category field.
 
 ### BR-16: Asset Sufficiency (Overdraft Enforcement)
 
 - The system must confirm that the source account's ledger-derived balance is greater than or equal to the transfer amount.
 - If the source account has insufficient funds:
   - The transaction must be aborted.
-  - No database state may be mutated.
+  - No application state may be mutated.
   - No transaction may be appended.
   - An explicit `InsufficientFundsError` must be raised.
 
@@ -282,70 +279,69 @@ Additional rules:
 - Transactions dated on the current date or any previous valid calendar date must be accepted.
 - Date comparisons must use calendar dates rather than timezone-aware timestamps.
 
-## 2.5 Expense Category Rules # update this whole section
+## 2.5 Expense Category Rules
 
 ### BR-20: Centralized Expense Category Definition
 
 - The application must maintain one centrally defined collection of permitted expense categories.
-- The collection must be maintained in `utils/constants.py`.
-- The initial supported categories are:
-  - Food
-  - Bills
-  - Utilities
-  - Transport
-  - Healthcare
-  - Entertainment
-  - Shopping
-  - Other
+- The collection must be maintained in `utils/constants.py` and exposed through the appropriate application model or Business Logic Layer interface.
+- The supported expense categories are:
+  - `food`
+  - `bills`
+  - `transport`
+  - `airtime`
+  - `health`
+  - `shopping`
+  - `entertainment`
+  - `others`
 - The collection must be treated as application-controlled configuration.
 - The UI must obtain available category options from the Business Logic Layer rather than maintaining an independent category list.
 - EXPENSE transactions must contain a valid category from the configured collection.
-- `INCOME`, `TRANSFER`, and RE`VERSAL transactions must not independently introduce expense categories.
+- INCOME and TRANSFER transactions must have `category = None` (null in JSON).
 - Invalid expense categories must raise `InvalidCategoryError`.
 - Category validation must be performed before proposed application state is mutated or persisted.
 
-• TrxType values: "income", "expense", "transfer", "reversal".
-• ExpCatOpts values (in `utils/constants.py / models/`): `"food"`, `"bills"`, `"transport"`, `"airtime"`, `"health"`, "shopping", "entertainment", "others" (updating the BR-20 list wording from Utilities/Healthcare/Other to Airtime/Health/Others so prose and enum match 1:1).
-• Category constraint: `TrxType.EXPENSE` requires a valid ExpCatOpts value; `TrxType.INCOME`, `TrxType.TRANSFER`, and `TrxType.REVERSAL` must have `category = None` (null in JSON), raising `InvalidCategoryError` otherwise.
+## 2.6 Transaction Correction Rules
 
-## 2.6 Transaction Reversal Rules
+### BR-21: Correction Through Compensating Transactions
 
-### BR-21: Reversal Eligibility and Reference Integrity
+- The system must not provide a dedicated REVERSAL transaction classification.
+- Incorrectly recorded transactions must be counteracted through new ordinary transactions.
+- INCOME transactions must be counteracted through EXPENSE transactions.
+- EXPENSE transactions must be counteracted through INCOME transactions.
+- TRANSFER transactions must be counteracted through TRANSFER transactions in the opposite direction.
+- Counteracting transactions must retain their ordinary transaction classifications.
+- Counteracting transactions must comply with all applicable transaction validation rules.
+- The original transaction must remain unchanged and accessible in the historical ledger.
+- The counteracting transaction must be recorded as an independent historical transaction.
+- The system must not create a special reversal reference or relationship between the original and counteracting transactions.
 
-- Only existing INCOME, EXPENSE, and TRANSFER transactions may be reversed.
-- A REVERSAL transaction must reference exactly one original transaction through `reverses_transaction_id`.
-- The referenced transaction must exist in the historical ledger.
-- A transaction that has already been reversed must not be reversed again.
-- A reversal transaction must not reference another reversal transaction.
-- The original transaction and its associated metadata must remain unchanged.
+### BR-22: Counteracting Transaction Financial Effects
 
-### BR-22: Reversal Financial Effects
+- A counteracting transaction must produce the opposite financial effect of the incorrectly recorded transaction.
+- Counteracting an INCOME transaction must debit the account originally credited.
+- Counteracting an EXPENSE transaction must credit the account originally debited.
+- Counteracting a TRANSFER transaction must credit the original source account and debit the original destination account.
+- Counteracting transactions must use an amount equal to the original transaction amount when the intention is to annul the original transaction completely.
+- The system must validate the resulting proposed account balances before persistence.
+- Counteracting an INCOME or TRANSFER transaction must not be permitted if the resulting account balance would become negative.
+- If a counteracting transaction violates the chronological balance invariant, the operation must be aborted.
+- Both accounts involved in a counteracting transfer must be updated as one atomic logical operation.
+- If a counteracting transaction cannot be completed, the original transaction and existing financial state must remain unchanged.
+- Counteracting transactions must follow the same persistence and validation mechanisms as ordinary financial transactions.
 
-- A reversal must exactly negate the financial effect of its original transaction.
-- Reversing an INCOME transaction must debit its original target account.
-- Reversing an EXPENSE transaction must credit its original source account.
-- Reversing a TRANSFER transaction must credit the original source account and debit the original target account.
-- Both accounts involved in a transfer reversal must be updated as one atomic logical operation.
-- The reversal must use the original transaction's amount and account references.
-- The system must validate the resulting proposed balances before persistence.
-- A reversal must not be permitted if it would produce an invalid negative account balance.
-- If a reversal cannot be completed, the original transaction and all account balances must remain unchanged.
+### BR-23: Transaction Correction Reporting and Historical Integrity
 
-### BR-23: Reversal Reporting and Historical Integrity
-
-- The original transaction must remain visible in historical transaction records.
-- The reversal must appear as a separate historical record.
-- The original transaction must be marked as reversed through its relationship to the reversal record or through a derived status.
-- Reversed original INCOME and EXPENSE transactions must be excluded from effective income and expense reporting.
-- REVERSAL transactions must not independently contribute to ordinary income and expense totals.
-- The replacement transaction recorded by the user must be treated as a normal independent transaction.
-- Reversal records must be included in account-level activity and transaction history.
-- Reversal creation must comply with BR-09 and the maximum transaction capacity.
-
-### BR-24: Reversal rules: # update this whole section
-- Target eligibility: Only INCOME, EXPENSE, and TRANSFER transactions can be reversed. Reversing a REVERSAL is rejected (DataIntegrityError / domain error), and each original transaction can be reversed at most once (checked via reverses_transaction_id).
-- Account & direction rules: A REVERSAL copies amount == original.amount and swaps source_acc_id and target_acc_id from the original transaction (INCOME reversal has source = original.target, target = None; EXPENSE reversal has source = None, target = original.source; TRANSFER reversal has source = original.target, target = original.source).
-- Account status & timeline check: Every referenced account (source_acc_id and/or target_acc_id) must be active, and validate_account_timeline() is run on every affected account with the candidate reversal included (rejecting with NegativeBalanceError if reversing an INCOME or TRANSFER would push an account below 0 at any date).
-
+- The original transaction must remain visible in historical transaction records after being counteracted.
+- The counteracting transaction must appear as a separate historical record.
+- Both transactions must retain their independent transaction IDs, classifications, dates, amounts, and applicable account references.
+- Counteracting transactions must contribute to financial reports according to their ordinary transaction classifications.
+- An EXPENSE transaction used to counteract an INCOME transaction must contribute to reported expenses.
+- An INCOME transaction used to counteract an EXPENSE transaction must contribute to reported income.
+- A TRANSFER transaction used to counteract another TRANSFER transaction must remain excluded from ordinary income and expense reporting.
+- Counteracting transactions must not be automatically excluded from ordinary income or expense reporting.
+- Users must be able to identify the purpose of a counteracting transaction through its descriptive label.
+- A replacement transaction recorded by the user must be treated as a normal independent transaction.
+- Counteracting transactions must comply with BR-09 and all applicable transaction validation and persistence constraints.
 
 ---

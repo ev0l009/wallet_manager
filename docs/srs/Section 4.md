@@ -31,10 +31,27 @@
 ### ASM-06: Controlled Application Configuration
 
 - The application assumes that supported account types, transaction classifications, and expense categories are centrally defined.
+- Supported transaction classifications are `INCOME`, `EXPENSE`, and `TRANSFER`.
 - Configuration changes must be made through controlled application updates rather than arbitrary user modifications to the JSON storage file.
 - Existing historical transaction records must remain readable following compatible configuration updates.
 
----
+### ASM-07: Ledger-Derived Account Balances
+
+- The system assumes that account balances are derived exclusively from associated historical transaction records.
+- Account entities do not maintain independently stored or cached balance attributes.
+- Newly created accounts contain no financial balance data and have a ledger-derived balance of zero Kobo until associated transactions are recorded.
+- All balance-dependent operations must obtain balances from the transaction ledger.
+
+### ASM-08: Compensating Transaction Corrections
+
+- The system assumes that incorrectly recorded financial transactions will be counteracted through new ordinary transactions rather than dedicated reversal records.
+- Counteracting transactions must retain their normal transaction classifications (`INCOME` or `EXPENSE`).
+- Users are responsible for providing descriptive context identifying the purpose of counteracting transactions.
+- The original and counteracting transactions must remain independently identifiable in the historical ledger.
+
+## Revised Section 4: Identified Ambiguities
+
+Revised SRS — Section 4: Identified Ambiguities
 
 # 4\. Identified Ambiguities
 
@@ -68,27 +85,33 @@ JSON does not provide native database indexing, query optimization, transactiona
 
 - **Ambiguity:** The requirements distinguish descriptive labels from expense categories but do not explicitly define how these fields apply to each transaction type.
 - **Resolution:**
-  - EXPENSE transactions must contain a category and may contain a descriptive label.
-  - INCOME transactions may contain a descriptive label but do not require an expense category.
-  - TRANSFER transactions may contain a descriptive label but do not require an expense category.
-  - REVERSAL transactions must inherit their financial references from the original transaction and may contain a descriptive correction label.
-- The category field must be `null` for INCOME, TRANSFER, and REVERSAL records.
-- The category field must not be used to classify internal transfers or reversals.
+  - EXPENSE transactions must contain a valid expense category and may contain a descriptive label.
+  - INCOME transactions may contain a descriptive label but must not contain an expense category.
+  - TRANSFER transactions may contain a descriptive label but must not contain an expense category.
+  - Counteracting transactions must follow the metadata requirements of their ordinary transaction classifications.
+  - The description field may contain contextual information identifying a transaction as a correction or explaining why it was recorded.
+- The category field must be `null` for INCOME and TRANSFER records.
+- The category field must not be used to classify internal transfers or counteracting transactions.
 
 ### AMB-05: Account Balance Initialization
 
-- **Ambiguity:** The original requirements do not define how newly created accounts acquire their initial balances.
-- **Resolution:** All accounts must begin with zero Kobo.
+- **Ambiguity:** The original requirements do not explicitly distinguish between an account's initial financial state and the existence of a stored account balance attribute.
+- **Resolution:** Newly created accounts must not contain an assigned or stored balance attribute.
+- An account with no associated transactions must have a ledger-derived balance of zero Kobo.
 - Initial funding must be recorded through a valid INCOME transaction rather than directly assigning a starting balance.
-- This preserves the ledger as the authoritative source of account balances.
+- This preserves the transaction ledger as the sole authoritative source of account balances.
 
 ### AMB-06: Transaction Correction Mechanism
 
 - **Ambiguity:** The original requirements establish an immutable transaction ledger but do not specify how users recover from incorrectly recorded transactions.
-- **Resolution:** Historical transactions must never be directly edited or deleted.
-- Incorrect transactions must be corrected through compensating REVERSAL transactions.
-- The user may subsequently record a replacement transaction containing the correct information.
-- Original transactions and their reversals must remain independently identifiable in the historical ledger.
+- **Resolution:** Historical transactions must never be directly edited or deleted through normal application operations.
+- Incorrect transactions must be counteracted through new ordinary transactions that produce the opposite financial effect.
+- An incorrectly recorded INCOME transaction must be counteracted through an EXPENSE transaction.
+- An incorrectly recorded EXPENSE transaction must be counteracted through an INCOME transaction.
+- Counteracting transactions must not introduce a dedicated REVERSAL classification or special transaction relationship.
+- Users may subsequently record replacement transactions containing the correct information.
+- Original and counteracting transactions must remain independently identifiable in the historical ledger.
+- Descriptive labels may be used to explain the relationship between an incorrect transaction and its counteracting transaction.
 
 ### AMB-07: Architecture Dependency Direction
 
@@ -100,5 +123,15 @@ JSON does not provide native database indexing, query optimization, transactiona
   - The application entry point connects the concrete storage implementation to the Business Logic Layer.
 - The Data Access Layer must not import or depend on the Business Logic Layer or Presentation Layer.
 - Dependency injection will allow business operations to be tested without physical disk access.
+
+### ASM-08: Compensating Transaction Corrections
+
+- The system assumes that incorrectly recorded financial transactions will be counteracted through new ordinary transactions rather than dedicated reversal records.
+- Counteracting transactions must retain their normal transaction classifications (`INCOME`, `EXPENSE`, or `TRANSFER`).
+- INCOME transactions are counteracted through EXPENSE transactions.
+- EXPENSE transactions are counteracted through INCOME transactions.
+- TRANSFER transactions are counteracted through TRANSFER transactions in the opposite direction.
+- Users are responsible for providing descriptive context identifying the purpose of counteracting transactions.
+- The original and counteracting transactions must remain independently identifiable in the historical ledger.
 
 ---

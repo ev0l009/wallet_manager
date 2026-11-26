@@ -38,8 +38,6 @@
 - **Req-7: Transaction Ledger Logging**
   - The system must write every income record to the permanent transaction history.
   - Income records must be classified as INCOME.
-  - The account balance mutation and ledger update must be treated as one logical transaction.
-  - Both changes must be persisted together through the staging-file and atomic replacement strategy.
   - The active in-memory state must only be updated after successful persistence.
 
 ## 1.3 Expenses
@@ -52,13 +50,12 @@
     - Transaction date (YYYY-MM-DD).
     - Expense category selected from the centrally defined expense-category collection.
     - Optional descriptive label (e.g., Groceries).
-- **Req-9: Account Balance Mutation**
-  - Upon successfully recording an expense, the system must decrement the balance of the designated source account by the transaction amount.
   - The system must prevent overdrafts in accordance with BR-10.
+  - The active in-memory state must only be updated after successful persistence.
 - **Req-10: Transaction Ledger Logging**
   - The system must write every expense record to the permanent transaction history.
   - Expense records must be classified as EXPENSE.
-  - The account balance mutation and ledger update must be treated as one logical transaction and persisted together.
+  - The active in-memory state must only be updated after successful persistence.
 
 ## 1.4 Transfers
 
@@ -71,16 +68,12 @@
     - Transaction date (YYYY-MM-DD).
     - Optional descriptive label.
   - The source and target accounts must be distinct entities.
-- **Req-12: Dual Account Balance Mutation**
-  - Upon execution, the system must decrement the source account balance and increment the target account balance by the same transaction amount.
-  - Both account mutations must occur as one atomic logical operation.
-  - The combined balance of the two accounts must remain unchanged after the transfer.
+  - The active in-memory state must only be updated after successful persistence.
 - **Req-13: Independent Transaction Classification**
   - The system must classify internal transfers as TRANSFER in the transaction history.
   - TRANSFER transactions must be excluded from standalone INCOME and EXPENSE totals.
   - The source and target account references must both be recorded.
   - TRANSFER transactions must not contain an expense category.
-  - The account mutations and corresponding ledger record must be persisted together.
 
 ## 1.5 Transaction History
 

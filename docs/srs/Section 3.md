@@ -172,6 +172,9 @@ The conversion function must return an integer Kobo value or raise `InvalidAmoun
 - Invalid financial operations must not modify account state or append transaction records.
 - During application startup, `_validate_chronological_balances()` must validate the loaded transaction history.
 - If historical transactions violate the chronological balance invariant, the application must raise `DataIntegrityError` and halt startup.
+- Transactions must be ordered chronologically by transaction date in ascending order during balance validation.
+- Transactions sharing the same transaction date must retain their persisted ledger insertion order.
+- The same deterministic ordering must be applied during application startup validation and candidate-ledger validation.
 
 ### BR-11: Financial State Authority and Balance Consistency
 
@@ -215,12 +218,11 @@ Additional rules:
 
 ### BR-12: Ledger-Based Balance Verification
 
-- The system must validate account balances using the historical transaction ledger.
-- The chronological balance validation mechanism must ensure that no account has a negative balance at any point in its transaction history.
-- The system must not rely on stored account balance attributes or cached balance values.
-- Financial state verification must use the cumulative effects of INCOME, EXPENSE, and TRANSFER transactions.
-- Ledger validation must not modify historical transaction records.
-- Any detected historical balance inconsistency must be treated as a data integrity issue rather than silently corrected through independent account balance mutations.
+- The system must validate the loaded historical transaction ledger against the established financial integrity rules.
+- Historical balance verification must use the cumulative financial effects of INCOME, EXPENSE, and TRANSFER transactions.
+- The validation must detect historical inconsistencies, including violations of the chronological balance invariant.
+- Historical transaction records must never be modified or silently corrected during validation.
+- Any detected historical financial inconsistency must raise an appropriate data integrity error.
 
 ## 2.3 Transfer Mechanics
 
@@ -311,6 +313,9 @@ Additional rules:
 - The original transaction must remain unchanged and accessible in the historical ledger.
 - The counteracting transaction must be recorded as an independent historical transaction.
 - The system must not create a special reversal reference or relationship between the original and counteracting transactions.
+- Every counteracting transaction must have its own independently assigned transaction date.
+- The original transaction date must not be automatically inherited or substituted for the counteracting transaction date.
+- Counteracting transactions must follow the ordinary transaction date validation rules.
 
 ### BR-22: Counteracting Transaction Financial Effects
 
@@ -324,7 +329,9 @@ Additional rules:
 - If a counteracting transaction violates the chronological balance invariant, the operation must be aborted.
 - Both accounts involved in a counteracting transfer must be updated as one atomic logical operation.
 - If a counteracting transaction cannot be completed, the original transaction and existing financial state must remain unchanged.
-- Counteracting transactions must follow the same persistence and validation mechanisms as ordinary financial transactions.
+- A counteracting TRANSFER must be represented by one independently persisted transaction record containing both the original destination and original source account references in their exchanged positions.
+- The financial effects on both accounts must be applied as one atomic logical ledger operation.
+- No independently maintained account balance attributes may be modified.
 
 ### BR-23: Transaction Correction Reporting and Historical Integrity
 

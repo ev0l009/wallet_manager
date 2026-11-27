@@ -1,9 +1,5 @@
 # 2\. Business Rules
 
-Revised SRS — Section 2: Business Rules
-
-# 2\. Business Rules
-
 ## 2.1 Accounts & Lifecycle Management
 
 ### BR-01: Structural Integrity (Naming Constraints)

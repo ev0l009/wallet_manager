@@ -36,7 +36,6 @@
 - Calculates ledger-derived account balances without relying on stored account balance attributes.
 - Implements transaction searching, filtering, sorting, pagination, and financial reporting.
 - Manages proposed in-memory state changes before persistence.
-- Must interact with persistence through the abstract storage interface.
 - Must not perform direct filesystem operations.
 
 ### Data Access Layer (`file_manager/`)
@@ -45,7 +44,6 @@
 - Handles JSON deserialization and serialization (`load_app_data()` and save operations).
 - Executes staging-file writes (`.storage.json.tmp` with `flush()` and `os.fsync()`) and atomic replacement (`os.replace()`).
 - Validates the structural integrity of loaded JSON data and delegates record reconstruction to `models/` through `from_dict()`.
-- Implements the abstract storage contract defined in `storage_interface.py`.
 - Translates filesystem, serialization, and read-side integrity failures into controlled persistence exceptions (`StorageReadError` and `StorageWriteError` defined in `exceptions/`).
 - Must not import or depend on `services/` or `ui/`.
 - Must depend only on the domain models and application exceptions.
@@ -68,13 +66,6 @@ text
                (services/)
                    |
                    v
-          ABSTRACT STORAGE INTERFACE
-        (file_manager/storage_interface.py)
-                   ^
-                   |
-             IMPLEMENTS
-                   |
-                   |
            DATA ACCESS LAYER
               (file_manager/)
                    |

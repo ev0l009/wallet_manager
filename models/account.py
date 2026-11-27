@@ -13,11 +13,11 @@ from exceptions.errors import (
     InvalidAccountIdError,
     InvalidAccountNameError,
     InvalidAccountTypeError,
+    WalletError,
 )
+
 from models.enums import AccStat, AccType
 from models.types import AccDict
-
-from typing import Self
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,12 +82,12 @@ class Account:
                 "Account status must be a valid AccStat value."
             )
 
-    def rename(self, new_name: str) -> Self:
+    def rename(self, new_name: str) -> "Account":
         """Return a replacement account with an updated name."""
 
         return replace(self, acc_name=new_name)
 
-    def deactivate(self) -> Self:
+    def deactivate(self) -> "Account":
         """Return an inactive replacement of this account."""
 
         if self.acc_status == AccStat.INACTIVE:
@@ -100,7 +100,7 @@ class Account:
             acc_status=AccStat.INACTIVE,
         )
 
-    def reactivate(self) -> Self:
+    def reactivate(self) -> "Account":
         """Return an active replacement of this account."""
 
         if self.acc_status == AccStat.ACTIVE:
@@ -114,34 +114,96 @@ class Account:
         )
 
     @classmethod
-    def from_dict(cls, data: AccDict) -> Self:
+    def from_dict(cls, data: AccDict) -> "Account":
         """Reconstruct an Account from persisted dictionary data.
 
-        Invalid persisted account data is reported as DataIntegrityError.
+        Invalid persisted account data raises DataIntegrityError.
         """
 
         try:
             if not isinstance(data, dict):
-                raise TypeError("Account data must be a dictionary.")
+                raise TypeError(
+                    "Account data must be a dictionary."
+                )
 
-            account_id = data["id"]
-            account_name = data["acc_name"]
-            account_type = AccType(data["acc_type"])
-            account_status = AccStat(data["acc_status"])
-            created_at = datetime.fromisoformat(data["created_at"])
+            # Reject fields outside the defined persistence schema.
+            allowed_keys = {
+                "id",
+                "acc_name",
+                "acc_type",
+                "acc_status",
+                "created_at",
+            }
+
+            unexpected_keys = [
+                key for key in data if key not in allowed_keys
+            ]
+
+            if unexpected_keys:
+                raise ValueError(
+                    f"Unexpected account fields: {unexpected_keys}."
+                )
+
+            # Validate persisted field representations.
+            for field_name in (
+                "id",
+                "acc_name",
+                "acc_type",
+                "acc_status",
+                "created_at",
+            ):
+                if field_name not in data:
+                    raise KeyError(
+                        f"Missing required account field: {field_name}."
+                    )
+
+            if not isinstance(data["acc_type"], str):
+                raise TypeError(
+                    "Persisted account type must be a string."
+                )
+
+            if not isinstance(data["acc_status"], str):
+                raise TypeError(
+                    "Persisted account status must be a string."
+                )
+
+            created_at_value = data["created_at"]
+
+            if not isinstance(created_at_value, str):
+                raise TypeError(
+                    "Persisted creation timestamp must be a string."
+                )
+
+            created_at = datetime.fromisoformat(created_at_value)
+
+            # Require a timezone-aware timestamp.
+            if (
+                created_at.tzinfo is None
+                or created_at.utcoffset() is None
+            ):
+                raise ValueError(
+                    "Persisted creation timestamp must be timezone-aware."
+                )
+
+            # Require the same ISO representation produced by to_dict().
+            if created_at.isoformat() != created_at_value:
+                raise ValueError(
+                    "Persisted creation timestamp must use a valid "
+                    "ISO 8601 representation."
+                )
 
             return cls(
-                id=account_id,
-                acc_name=account_name,
-                acc_type=account_type,
+                id=data["id"],
+                acc_name=data["acc_name"],
+                acc_type=AccType(data["acc_type"]),
                 created_at=created_at,
-                acc_status=account_status,
+                acc_status=AccStat(data["acc_status"]),
             )
 
-        except Exception as exc:
-            if isinstance(exc, DataIntegrityError):
-                raise
+        except DataIntegrityError:
+            raise
 
+        except (KeyError, TypeError, ValueError, WalletError) as exc:
             raise DataIntegrityError(
                 f"Invalid persisted account data: {exc}"
             ) from exc

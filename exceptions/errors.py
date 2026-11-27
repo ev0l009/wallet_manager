@@ -1,4 +1,3 @@
-
 """Custom exception hierarchy for the Finance Tracker application."""
 
 
@@ -82,9 +81,20 @@ class EntityNotFoundError(WalletError):
     pass
 
 
+# --- DATA INTEGRITY ERRORS ---
+class DataIntegrityError(WalletError):
+    """Raised when persisted application data violates integrity rules."""
+    pass
+
+
+class NegativeBalanceError(DataIntegrityError):
+    """Raised when historical ledger validation produces a negative balance."""
+    pass
+
+
 # --- PERSISTENCE ERRORS ---
 class PersistenceError(WalletError):
-    """Base exception for storage and persistence failures."""
+    """Base exception for persistence operation failures."""
     pass
 
 
@@ -93,8 +103,4 @@ class StorageReadError(PersistenceError):
 
 
 class StorageWriteError(PersistenceError):
-    pass
-
-
-class DataIntegrityError(PersistenceError):
     pass

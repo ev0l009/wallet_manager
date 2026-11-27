@@ -17,11 +17,11 @@ class AccStat(Enum):
 
 
 class TrxType(Enum):
-    """Financial transaction classifications."""
+    """Supported financial transaction classifications."""
 
-    TRANSFER = "transfer"
-    EXPENSE = "withdraw"
     INCOME = "income"
+    EXPENSE = "expense"
+    TRANSFER = "transfer"
 
 
 class ExpCatOpts(Enum):

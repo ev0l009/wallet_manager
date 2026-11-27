@@ -5,79 +5,146 @@ their individual structural and domain invariants.
 """
 
 from dataclasses import dataclass
-from datetime import date
-from typing import Self
+from datetime import date, datetime
 
 from exceptions.errors import (
-    EntityNotFoundError,
+    DataIntegrityError,
+    InvalidAccountIdError,
     InvalidAmountError,
-    SelfTransferError,
-    InvalidTransactionTypeError,
     InvalidCategoryError,
-    BusinessRuleError,
-    InvalidDateError
+    InvalidDateError,
+    InvalidTransactionIdError,
+    InvalidTransactionTypeError,
+    SelfTransferError,
+    ValidationError,
+    WalletError,
 )
 
-from models.enums import TrxType, ExpCatOpts
+from models.enums import ExpCatOpts, TrxType
 from models.types import TrxDict
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class Transaction:
     """Represents an immutable financial transaction record."""
 
     id: str
     amount: int
     transaction_date: date
-    transaction_type: str 
-    category: str | None = None
+    transaction_type: TrxType
+    category: ExpCatOpts | None = None
     desc: str | None = None
     source_acc_id: str | None = None
     target_acc_id: str | None = None
-    reverses_transaction_id: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate transaction attributes and structural invariants."""
+
         # Transaction ID
-        if not isinstance(self.id, str) or not self.id.strip(): # type: ignore
-            raise EntityNotFoundError(
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise InvalidTransactionIdError(
                 "Transaction ID must be a non-empty string."
             )
 
-        # Amount
+        object.__setattr__(self, "id", self.id.strip())
+
+        # Amount: positive integer Kobo
         if type(self.amount) is not int or self.amount <= 0:
             raise InvalidAmountError(
-                "Transaction amount must be a positive whole number."
+                "Transaction amount must be a positive integer Kobo value."
             )
 
         # Transaction date
-        if not isinstance(self.transaction_date, date): # type: ignore
+        if (
+            not isinstance(self.transaction_date, date)
+            or isinstance(self.transaction_date, datetime)
+        ):
             raise InvalidDateError(
-                "Transaction date must be a valid date."
+                "Transaction date must be a date instance, not a datetime."
             )
 
         # Transaction type
-        allowed_types = {trx_type.value for trx_type in TrxType}
-
-        if not isinstance(self.transaction_type, str) or ( # type: ignore
-            self.transaction_type not in allowed_types
-        ):
+        if not isinstance(self.transaction_type, TrxType):
             raise InvalidTransactionTypeError(
-                f"Invalid transaction type: {self.transaction_type!r}."
+                "Transaction type must be a valid TrxType value."
+            )
+
+        # Description
+        if self.desc is not None and not isinstance(self.desc, str):
+            raise ValidationError(
+                "Transaction description must be a string or None."
             )
 
         # Account references
-        for account_id in (self.source_acc_id, self.target_acc_id):
-            if account_id is not None and (
-                not isinstance(account_id, str) or not account_id.strip() # type: ignore
-            ):
-                raise EntityNotFoundError(
-                    "Account IDs must be non-empty strings when provided."
-                )
+        for field_name, account_id in (
+            ("source", self.source_acc_id),
+            ("target", self.target_acc_id),
+        ):
+            if account_id is not None:
+                if not isinstance(account_id, str) or not account_id.strip():
+                    raise InvalidAccountIdError(
+                        f"{field_name.capitalize()} account ID "
+                        "must be a non-empty string when provided."
+                    )
+
+        if self.source_acc_id is not None:
+            object.__setattr__(
+                self, "source_acc_id", self.source_acc_id.strip()
+            )
+
+        if self.target_acc_id is not None:
+            object.__setattr__(
+                self, "target_acc_id", self.target_acc_id.strip()
+            )
+
+        # Category type
+        if (
+            self.category is not None
+            and not isinstance(self.category, ExpCatOpts)
+        ):
+            raise InvalidCategoryError(
+                "Category must be a valid expense category or None."
+            )
 
         # Transaction-specific structural validation
-        if self.transaction_type == TrxType.TRANSFER.value:
-            if self.source_acc_id is None or self.target_acc_id is None:
-                raise EntityNotFoundError(
+        if self.transaction_type == TrxType.INCOME:
+            if self.target_acc_id is None:
+                raise InvalidAccountIdError(
+                    "Income transactions require a target account ID."
+                )
+
+            if self.source_acc_id is not None:
+                raise ValidationError(
+                    "Income transactions cannot have a source account."
+                )
+
+            if self.category is not None:
+                raise InvalidCategoryError(
+                    "Income transactions cannot have an expense category."
+                )
+
+        elif self.transaction_type == TrxType.EXPENSE:
+            if self.source_acc_id is None:
+                raise InvalidAccountIdError(
+                    "Expense transactions require a source account ID."
+                )
+
+            if self.target_acc_id is not None:
+                raise ValidationError(
+                    "Expense transactions cannot have a target account."
+                )
+
+            if self.category is None:
+                raise InvalidCategoryError(
+                    "Expense transactions require an expense category."
+                )
+
+        elif self.transaction_type == TrxType.TRANSFER:
+            if (
+                self.source_acc_id is None
+                or self.target_acc_id is None
+            ):
+                raise InvalidAccountIdError(
                     "Transfers require source and target account IDs."
                 )
 
@@ -91,80 +158,110 @@ class Transaction:
                     "Transfers cannot have an expense category."
                 )
 
-        elif self.transaction_type == TrxType.WITHDRAW.value:
-            if self.source_acc_id is None:
-                raise EntityNotFoundError(
-                    "Withdrawals require a source account ID."
+    @classmethod
+    def from_dict(cls, data: TrxDict) -> "Transaction":
+        """Reconstruct a Transaction from persisted dictionary data.
+
+        Invalid persisted transaction records raise DataIntegrityError.
+        """
+
+        try:
+            if not isinstance(data, dict):
+                raise TypeError(
+                    "Transaction data must be a dictionary."
                 )
 
-            allowed_categories = {
-                category.value for category in ExpCatOpts
+            # Reject fields outside the defined persistence schema.
+            allowed_keys = {
+                "id",
+                "amount",
+                "transaction_date",
+                "transaction_type",
+                "category",
+                "desc",
+                "source_acc_id",
+                "target_acc_id",
             }
 
-            if self.category not in allowed_categories:
-                raise InvalidCategoryError(
-                    f"Invalid expense category: {self.category!r}."
+            unexpected_keys = [
+                key for key in data if key not in allowed_keys
+            ]
+
+            if unexpected_keys:
+                raise ValueError(
+                    f"Unexpected transaction fields: {unexpected_keys}."
                 )
 
-        elif self.transaction_type == TrxType.DEPOSIT.value:
-            if self.target_acc_id is None:
-                raise EntityNotFoundError(
-                    "Deposits require a target account ID."
+            # Date must use the exact YYYY-MM-DD representation.
+            date_value = data["transaction_date"]
+
+            if not isinstance(date_value, str):
+                raise TypeError(
+                    "Persisted transaction date must be a string."
                 )
 
-            if self.category is not None:
-                raise InvalidCategoryError(
-                    "Deposits cannot have an expense category."
+            transaction_date = date.fromisoformat(date_value)
+
+            if transaction_date.isoformat() != date_value:
+                raise ValueError(
+                    "Transaction date must use YYYY-MM-DD format."
                 )
 
-        elif self.transaction_type == TrxType.REVERSAL.value:
+            # Transaction type must be stored as a string.
+            transaction_type_value = data["transaction_type"]
+
+            if not isinstance(transaction_type_value, str):
+                raise TypeError(
+                    "Persisted transaction type must be a string."
+                )
+
+            # Category must be a string or None.
+            category_value = data.get("category")
+
             if (
-                not isinstance(self.reverses_transaction_id, str)
-                or not self.reverses_transaction_id.strip()
+                category_value is not None
+                and not isinstance(category_value, str)
             ):
-                raise BusinessRuleError(
-                    "Reversals must reference an original transaction ID."
+                raise TypeError(
+                    "Persisted transaction category must be a string or None."
                 )
 
-            if self.source_acc_id is None and self.target_acc_id is None:
-                raise BusinessRuleError(
-                    "Reversals must reference at least one account."
-                )
+            category = (
+                ExpCatOpts(category_value)
+                if category_value is not None
+                else None
+            )
 
-    @classmethod
-    def from_dict(cls, data: TrxDict) -> Self:
-        """Reconstructs a Transaction from a dictionary."""
+            return cls(
+                id=data["id"],
+                amount=data["amount"],
+                transaction_date=transaction_date,
+                transaction_type=TrxType(transaction_type_value),
+                category=category,
+                desc=data.get("desc"),
+                source_acc_id=data.get("source_acc_id"),
+                target_acc_id=data.get("target_acc_id"),
+            )
 
-        transaction_date = data["transaction_date"]
-
-        if isinstance(transaction_date, str): # type: ignore
-            transaction_date = date.fromisoformat(transaction_date)
-
-        return cls(
-            id=data["id"],
-            amount=data["amount"],
-            transaction_date=transaction_date,
-            transaction_type=data["transaction_type"],
-            category=data.get("category"),
-            desc=data.get("desc"),
-            source_acc_id=data.get("source_acc_id"),
-            target_acc_id=data.get("target_acc_id"),
-            reverses_transaction_id=data.get(
-                "reverses_transaction_id"
-            ),
-        )
+        except (KeyError, TypeError, ValueError, WalletError) as exc:
+            raise DataIntegrityError(
+                f"Invalid persisted transaction data: {exc}"
+            ) from exc
 
     def to_dict(self) -> TrxDict:
-        """Serializes the transaction into a dictionary."""
+        """Convert the transaction into a JSON-compatible dictionary."""
 
         return {
             "id": self.id,
             "amount": self.amount,
             "transaction_date": self.transaction_date.isoformat(),
-            "transaction_type": self.transaction_type,
-            "category": self.category,
+            "transaction_type": self.transaction_type.value,
+            "category": (
+                self.category.value
+                if self.category is not None
+                else None
+            ),
             "desc": self.desc,
             "source_acc_id": self.source_acc_id,
             "target_acc_id": self.target_acc_id,
-            "reverses_transaction_id": self.reverses_transaction_id,
         }

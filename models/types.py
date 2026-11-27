@@ -1,7 +1,9 @@
 
+"""Type definitions for Finance Tracker application data structures."""
+
 from __future__ import annotations
 
-from typing import TypedDict, TYPE_CHECKING, NotRequired
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 if TYPE_CHECKING:
     from models.account import Account
@@ -9,12 +11,14 @@ if TYPE_CHECKING:
 
 
 class WalletEngineData(TypedDict):
+    """In-memory application state."""
+
     accounts: dict[str, Account]
     transactions: list[Transaction]
 
 
 class TrxDict(TypedDict):
-    """Serialization schema for application transactions."""
+    """Serialized representation of a financial transaction."""
 
     id: str
     amount: int
@@ -28,7 +32,7 @@ class TrxDict(TypedDict):
 
 
 class AccDict(TypedDict):
-    """Serialization schema for individual accounts."""
+    """Serialized representation of an account."""
 
     id: str
     acc_name: str
@@ -38,7 +42,11 @@ class AccDict(TypedDict):
 
 
 class FundedAccDict(TypedDict):
-    """Serialization schema for individual accounts."""
+    """UI display representation of an account with a calculated balance.
+
+    acc_bal is supplied by the Business Logic Layer for display only.
+    It is not an Account attribute and must never be persisted.
+    """
 
     id: str
     acc_name: str
@@ -49,7 +57,7 @@ class FundedAccDict(TypedDict):
 
 
 class JSONData(TypedDict):
-    """Serialized storage map matching the final output JSON structure."""
+    """Serialized JSON storage structure."""
 
     accounts: dict[str, AccDict]
     transactions: list[TrxDict]

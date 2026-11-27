@@ -31,32 +31,7 @@ The application must adopt a consistent Python type annotation strategy to impro
 - Functions performing balance calculations must return integer Kobo values.
 - Type annotations and documentation must explicitly identify monetary integers as Kobo rather than Naira.
 
-## 9.4 Storage Interface Typing
-
-- The storage contract must use Python's `Protocol` or another suitable abstraction mechanism.
-- The Business Logic Layer must depend on the storage contract rather than the concrete JSON storage implementation.
-- The concrete Data Access Layer must satisfy the storage contract.
-- The storage interface must support dependency injection and substitution with in-memory test doubles.
-
-**Illustrative interface:**
-
-python
-
-```python
-from typing import Protocol
-
-class StorageProtocol(Protocol):
-
-    def load_state(self) -> dict:
-        ...
-
-    def save_state(self, state: dict) -> None:
-        ...
-```
-
-The actual implementation may use more specific domain types or typed state structures as the application develops.
-
-## 9.5 Type Checking Expectations
+## 9.4 Type Checking Expectations
 
 - The project should use a static type checker such as `mypy` during development.
 - Type-checking errors involving public interfaces and domain entities must be resolved before release.

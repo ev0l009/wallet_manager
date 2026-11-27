@@ -45,13 +45,12 @@
 ### ASM-08: Compensating Transaction Corrections
 
 - The system assumes that incorrectly recorded financial transactions will be counteracted through new ordinary transactions rather than dedicated reversal records.
-- Counteracting transactions must retain their normal transaction classifications (`INCOME` or `EXPENSE`).
+- Counteracting transactions must retain their normal transaction classifications (INCOME, EXPENSE, or TRANSFER).
+- INCOME transactions are counteracted through EXPENSE transactions.
+- EXPENSE transactions are counteracted through INCOME transactions.
+- TRANSFER transactions are counteracted through TRANSFER transactions in the opposite direction.
 - Users are responsible for providing descriptive context identifying the purpose of counteracting transactions.
 - The original and counteracting transactions must remain independently identifiable in the historical ledger.
-
-## Revised Section 4: Identified Ambiguities
-
-Revised SRS — Section 4: Identified Ambiguities
 
 # 4\. Identified Ambiguities
 

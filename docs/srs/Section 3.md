@@ -34,7 +34,9 @@
 ### BR-03: Reference Validation
 
 - The system must reject any transaction referencing a non-existent, malformed, or invalid account ID.
-- Account references must be validated against the application's loaded account collection.
+- Account references must be validated against the application's loaded account collection when the transaction is entered.
+- An account's creation timestamp must not be used to determine whether it can be referenced by a backdated transaction.
+- Transactions may have financial dates earlier than the creation timestamp of their associated accounts.
 - Account names must not be treated as substitutes for unique account identifiers during transaction processing.
 
 ### BR-04: Active List Isolation
@@ -43,6 +45,9 @@
 - Inactive accounts must remain accessible through a dedicated inactive-account directory.
 - Users must be able to inspect inactive accounts and initiate reactivation through the account management interface.
 - Inactive accounts must retain their historical transaction associations and ledger-derived balances.
+- The system may calculate and display an inactive account's ledger-derived balance during individual account inspection.
+- Inactive account balances must not contribute to active account balance totals or aggregate net worth calculations.
+- Historical transaction records associated with inactive accounts must remain accessible.
 
 ### BR-05: Deactivation and Reactivation Isolation
 
@@ -215,6 +220,9 @@ Additional rules:
 - Inactive accounts must retain their historical transaction associations and ledger-derived balances.
 - The calculated balance must serve as the authoritative reference during overdraft validation, chronological balance validation, and account lifecycle validation.
 - An account must not be assigned an arbitrary initial balance outside the transaction ledger.
+- The system must calculate ledger-derived balances for both ACTIVE and INACTIVE accounts when required for individual account inspection or account lifecycle validation.
+- Inactive account balances must be excluded from active account balance totals and aggregate net worth calculations.
+- Account status must affect participation in active financial aggregates, not the underlying calculation of the account's historical ledger balance.
 
 ### BR-12: Ledger-Based Balance Verification
 
@@ -332,6 +340,8 @@ Additional rules:
 - A counteracting TRANSFER must be represented by one independently persisted transaction record containing both the original destination and original source account references in their exchanged positions.
 - The financial effects on both accounts must be applied as one atomic logical ledger operation.
 - No independently maintained account balance attributes may be modified.
+- If a compensating transaction requires an inactive account to participate, the account must be reactivated before the compensating transaction can be recorded.
+- Reactivation must not modify the original transaction or any existing historical ledger records.
 
 ### BR-23: Transaction Correction Reporting and Historical Integrity
 

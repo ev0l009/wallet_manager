@@ -9,6 +9,7 @@
 
 - All manually entered financial records are assumed to represent transactions that have already concluded in the real world.
 - This assumption justifies the rejection of future-dated transactions.
+- Backdated transactions may reference accounts created after the transaction's financial date, provided the referenced accounts exist in the application's loaded account collection when the transactions are entered.
 
 ### ASM-03: Single-Threaded Execution and File Access
 
@@ -41,6 +42,9 @@
 - Account entities do not maintain independently stored or cached balance attributes.
 - Newly created accounts contain no financial balance data and have a ledger-derived balance of zero Kobo until associated transactions are recorded.
 - All balance-dependent operations must obtain balances from the transaction ledger.
+- Both ACTIVE and INACTIVE account balances may be calculated when required.
+- INACTIVE account balances must be excluded from active account balance totals and aggregate net worth calculations.
+- Account status determines participation in active financial aggregates but does not prevent calculation or inspection of the account's historical ledger-derived balance.
 
 ### ASM-08: Compensating Transaction Corrections
 

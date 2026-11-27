@@ -15,7 +15,9 @@
   - The system must provide a separate option for retrieving inactive accounts.
   - The system must allow users to inspect individual accounts, displaying their details, current ledger-derived balance, account status, and associated transaction history.
   - Account inspection must remain available regardless of account status.
-  - Inactive accounts must not have their current balances calculated or exposed as active account balances. Their historical transaction records must remain accessible.
+  - Inactive accounts may have their current ledger-derived balances calculated and displayed during individual account inspection.
+  - Inactive account balances must not be included in active account balance totals or aggregate net worth calculations.
+  - Historical transaction records associated with inactive accounts must remain accessible.
 - **Req-3: Account Modification**
   - The system must allow users to update the name of an existing account.
   - Updated account names must comply with the naming constraints defined in BR-01.
@@ -143,14 +145,15 @@
 ## 1.7 Balances
 
 - **Req-18: Granular Account Balances**
-  - The system must calculate and expose the current monetary balance of every active account.
+
+  - The system must calculate and expose the current monetary balance of every account, regardless of account status, when individual account inspection requires it.
   - Account balances must be derived exclusively from the cumulative financial effects of associated transaction records.
   - Income transactions must increase the balance of their associated account.
   - Expense transactions must decrease the balance of their associated account.
   - Transfer transactions must decrease the source account balance and increase the target account balance by the same amount.
   - Account balances must be calculated using integer Kobo.
   - Accounts must not maintain independently stored or cached balance attributes.
-  - Inactive accounts must not have current balances calculated or included in active account balance calculations.
+  - Inactive account balances may be calculated and displayed individually but must be excluded from active account balance totals and aggregate net worth calculations.
 - **Req-19: Total Aggregate Net Worth Display**
   - The system must provide a consolidated dashboard displaying the aggregate net balance across all active accounts.
   - Inactive accounts must be excluded from the aggregate net worth calculation.
@@ -215,6 +218,9 @@
   - If any resulting chronological balance becomes negative, the transaction must be rejected.
   - Transactions sharing the same transaction date must be evaluated using their insertion order.
   - Chronological balance validation must apply equally to ordinary transactions and compensating transactions.
+  - Chronological balance validation must consider all transactions associated with an account, including transactions dated before the account's creation timestamp.
+  - Account creation timestamps must not be used to reject otherwise valid backdated transactions.
+  - Account existence must be validated against the application's loaded account collection when a transaction is entered.
 
 ## 1.11 Transaction Persistence and State Consistency
 

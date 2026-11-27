@@ -125,16 +125,6 @@ JSON does not provide native database indexing, query optimization, transactiona
 - The Presentation Layer must not access the Data Access Layer directly.
 - The Data Access Layer must remain responsible for JSON serialization, deserialization, and persistence operations.
 - Business operations must remain testable independently of terminal interaction and should use controlled test storage or temporary files where persistence testing is required.
-- No abstract storage interface or alternative storage implementation mechanism is required.
-
-### ASM-08: Compensating Transaction Corrections
-
-- The system assumes that incorrectly recorded financial transactions will be counteracted through new ordinary transactions rather than dedicated reversal records.
-- Counteracting transactions must retain their normal transaction classifications (`INCOME`, `EXPENSE`, or `TRANSFER`).
-- INCOME transactions are counteracted through EXPENSE transactions.
-- EXPENSE transactions are counteracted through INCOME transactions.
-- TRANSFER transactions are counteracted through TRANSFER transactions in the opposite direction.
-- Users are responsible for providing descriptive context identifying the purpose of counteracting transactions.
-- The original and counteracting transactions must remain independently identifiable in the historical ledger.
+- No abstract storage interface or alternative storage implementation mechanism is required
 
 ---

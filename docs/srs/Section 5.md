@@ -201,8 +201,8 @@ python
 ```python
 account = Account(
     id=generated_account_id,
-    name="First Bank",
-    account_type=AccountType.BANK
+    acc_name="First Bank",
+    acc_type=AccountType.BANK
 )
 ```
 
@@ -317,7 +317,14 @@ json
 
 **Data structure constraints:**
 
-- Account IDs must be unique.
+- Account identifiers and transaction identifiers must be generated at the Business Logic Layer.
+- Account identifiers must be checked against existing account identifiers before account construction.
+- Transaction identifiers must be checked against existing transaction identifiers before transaction construction.
+- Both identifiers must be unique within their respective collections.
+- Domain entities must receive their identifiers during construction and must not generate their own identifiers.
+- The persisted transaction list must preserve transaction insertion order.
+- Transactions sharing the same transaction date must retain their persisted insertion order during chronological balance validation.
+- Transaction history presentation may apply independent sorting without modifying the persisted ledger order.
 - Account & transaction IDs must be generated at the service layer, with duplicate checks performed before account creation.
 - Transaction IDs must be unique.
 - Account records must not contain stored or cached balance attributes.

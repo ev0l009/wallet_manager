@@ -1,7 +1,3 @@
-## 6\. Persistence Architecture and Integrity Guard
-
-Revised SRS — Section 6: Persistence Architecture and Integrity Guard
-
 # 6\. Persistence Architecture and Integrity Guard
 
 ## 6.1 Serialization Lifecycle (`json.dump` / `json.load`)

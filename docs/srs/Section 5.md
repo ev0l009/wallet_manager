@@ -318,7 +318,7 @@ json
 **Data structure constraints:**
 
 - Account IDs must be unique.
-- Account IDs must be generated at the service layer, with duplicate checks performed before account creation.
+- Account & transaction IDs must be generated at the service layer, with duplicate checks performed before account creation.
 - Transaction IDs must be unique.
 - Account records must not contain stored or cached balance attributes.
 - Transaction amounts must be stored as positive integer Kobo values.

@@ -293,7 +293,8 @@ Section 5 amendments
 
 ## 7\. Final verdict
 
-Architecturally approvedI approve the overall design of Section 5, subject to incorporating the clarifications above.
+**Architecturally approved!**  
+I approve the overall design of Section 5, subject to incorporating the clarifications above.
 
 Most importantly, we do not need to redesign your architecture.
 

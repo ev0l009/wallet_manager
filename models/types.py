@@ -25,7 +25,6 @@ class TrxDict(TypedDict):
     desc: NotRequired[str | None]
     source_acc_id: NotRequired[str | None]
     target_acc_id: NotRequired[str | None]
-    reverses_transaction_id: NotRequired[str | None]
 
 
 class AccDict(TypedDict):

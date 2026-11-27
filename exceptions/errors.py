@@ -82,20 +82,6 @@ class EntityNotFoundError(WalletError):
     pass
 
 
-# --- TRANSACTION CORRECTION ERRORS ---
-class TransactionCorrectionError(WalletError):
-    """Base exception for transaction correction operations."""
-    pass
-
-
-class TransactionAlreadyReversedError(TransactionCorrectionError):
-    pass
-
-
-class InvalidReversalError(TransactionCorrectionError):
-    pass
-
-
 # --- PERSISTENCE ERRORS ---
 class PersistenceError(WalletError):
     """Base exception for storage and persistence failures."""
@@ -110,5 +96,5 @@ class StorageWriteError(PersistenceError):
     pass
 
 
-class StorageCorruptedError(PersistenceError):
+class DataIntegrityError(PersistenceError):
     pass

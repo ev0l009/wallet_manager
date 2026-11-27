@@ -6,7 +6,7 @@ class AccType(Enum):
     BANK = "bank"
     CASH = "cash"
     SAVINGS = "savings"
-    MOBILE = "mobile"
+    MOBILE_WALLET = "mobile_wallet"
 
 
 class AccStat(Enum):
@@ -20,9 +20,8 @@ class TrxType(Enum):
     """Financial transaction classifications."""
 
     TRANSFER = "transfer"
-    WITHDRAW = "withdraw"
-    DEPOSIT = "deposit"
-    REVERSAL = "reversal"
+    EXPENSE = "withdraw"
+    INCOME = "income"
 
 
 class ExpCatOpts(Enum):

@@ -1,181 +1,158 @@
-
 """Account domain model for the Finance Tracker application.
 
-Defines the Account entity, enforcing account-level invariants,
+Defines the immutable Account entity, enforcing account-level invariants,
 lifecycle transitions, and explicit dictionary serialization.
 """
- 
-from datetime import datetime, timezone
-from typing import Self
+
+from dataclasses import dataclass, replace
+from datetime import datetime
 
 from exceptions.errors import (
+    BusinessRuleError,
+    DataIntegrityError,
+    InvalidAccountIdError,
     InvalidAccountNameError,
     InvalidAccountTypeError,
-    BusinessRuleError,
-    StorageCorruptedError
 )
-
-from models.enums import AccType, AccStat
+from models.enums import AccStat, AccType
 from models.types import AccDict
 
+from typing import Self
 
+
+@dataclass(frozen=True, slots=True)
 class Account:
     """Represents a financial account and its lifecycle state."""
 
-    def __init__(
-        self,
-        id: str,
-        acc_name: str,
-        acc_type: str,
-        created_at: datetime | None = None,
-    ) -> None:
-        # Account identifier
-        if not isinstance(id, str) or not id.strip(): # type: ignore
-            raise ValueError("Account ID must be a non-empty string.")
+    id: str
+    acc_name: str
+    acc_type: AccType
+    created_at: datetime
+    acc_status: AccStat = AccStat.ACTIVE
 
-        self._id = id.strip()
+    def __post_init__(self) -> None:
+        """Validate and normalize account attributes."""
 
-        # Account name
-        self.acc_name = acc_name
-
-        # Account type
-        allowed_types = {account_type.value for account_type in AccType}
-
-        if acc_type not in allowed_types:
-            raise InvalidAccountTypeError(
-                f"Invalid account type '{acc_type}'. "
-                f"Must be one of {allowed_types}."
+        # Account ID
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise InvalidAccountIdError(
+                "Account ID must be a non-empty string."
             )
 
-        self._acc_type = acc_type
+        object.__setattr__(self, "id", self.id.strip())
 
-        # Creation timestamp
-        if created_at is None:
-            created_at = datetime.now(timezone.utc).replace(microsecond=0)
-
-        if not isinstance(created_at, datetime): # type: ignore
-            raise TypeError("created_at must be a datetime instance.")
-
-        if created_at.tzinfo is None or created_at.utcoffset() is None:
-            raise ValueError("created_at must be timezone-aware.")
-
-        self._created_at = created_at
-
-        # Initial lifecycle state
-        self._acc_status = AccStat.ACTIVE.value
-
-    # --- READ-ONLY PROPERTIES ---
-
-    @property
-    def id(self) -> str:
-        """Returns the account's unique identifier."""
-        return self._id
-
-    @property
-    def acc_type(self) -> str:
-        """Returns the account classification."""
-        return self._acc_type
-
-    @property
-    def created_at(self) -> datetime:
-        """Returns the account creation timestamp."""
-        return self._created_at
-
-    @property
-    def acc_status(self) -> str:
-        """Returns the account's current lifecycle state."""
-        return self._acc_status
-
-    # --- MUTABLE PROPERTIES ---
-
-    @property
-    def acc_name(self) -> str:
-        """Returns the account name."""
-        return self._acc_name
-
-    @acc_name.setter
-    def acc_name(self, value: str) -> None:
-        """Validates and updates the account name."""
-
-        if not isinstance(value, str):
+        # Account name
+        if not isinstance(self.acc_name, str):
             raise InvalidAccountNameError(
                 "Account name must be a string."
             )
 
-        value = value.strip()
+        normalized_name = self.acc_name.strip()
 
-        if not value:
+        if not 4 <= len(normalized_name) <= 20:
             raise InvalidAccountNameError(
-                "Account name cannot be empty."
+                "Account name must contain between 4 and 20 characters."
             )
 
-        if len(value) < 4:
-            raise InvalidAccountNameError(
-                "Account name must contain at least four characters."
+        object.__setattr__(self, "acc_name", normalized_name)
+
+        # Account type
+        if not isinstance(self.acc_type, AccType):
+            raise InvalidAccountTypeError(
+                "Account type must be a valid AccType value."
             )
 
-        self._acc_name = value
+        # Creation timestamp
+        if not isinstance(self.created_at, datetime):
+            raise TypeError(
+                "created_at must be a datetime instance."
+            )
 
-    # --- LIFECYCLE METHODS ---
+        if (
+            self.created_at.tzinfo is None
+            or self.created_at.utcoffset() is None
+        ):
+            raise ValueError(
+                "created_at must be timezone-aware."
+            )
 
-    def deactivate(self) -> None:
-        """Transitions an active account to inactive."""
+        # Account status
+        if not isinstance(self.acc_status, AccStat):
+            raise ValueError(
+                "Account status must be a valid AccStat value."
+            )
 
-        if self.acc_status == AccStat.INACTIVE.value:
+    def rename(self, new_name: str) -> Self:
+        """Return a replacement account with an updated name."""
+
+        return replace(self, acc_name=new_name)
+
+    def deactivate(self) -> Self:
+        """Return an inactive replacement of this account."""
+
+        if self.acc_status == AccStat.INACTIVE:
             raise BusinessRuleError(
                 "Account is already inactive."
             )
 
-        self._acc_status = AccStat.INACTIVE.value
+        return replace(
+            self,
+            acc_status=AccStat.INACTIVE,
+        )
 
-    def reactivate(self) -> None:
-        """Transitions an inactive account to active."""
+    def reactivate(self) -> Self:
+        """Return an active replacement of this account."""
 
-        if self.acc_status == AccStat.ACTIVE.value:
+        if self.acc_status == AccStat.ACTIVE:
             raise BusinessRuleError(
                 "Account is already active."
             )
 
-        self._acc_status = AccStat.ACTIVE.value
-
-    # --- SERIALIZATION ---
+        return replace(
+            self,
+            acc_status=AccStat.ACTIVE,
+        )
 
     @classmethod
     def from_dict(cls, data: AccDict) -> Self:
-        """Reconstructs an Account instance from a dictionary."""
+        """Reconstruct an Account from persisted dictionary data.
 
-        timestamp = datetime.fromisoformat(data["created_at"])
+        Invalid persisted account data is reported as DataIntegrityError.
+        """
 
-        instance = cls(
-            id=data["id"],
-            acc_name=data["acc_name"],
-            acc_type=data["acc_type"],
-            created_at=timestamp,
-        )
+        try:
+            if not isinstance(data, dict):
+                raise TypeError("Account data must be a dictionary.")
 
-        if "acc_status" in data:
-            status = data["acc_status"]
+            account_id = data["id"]
+            account_name = data["acc_name"]
+            account_type = AccType(data["acc_type"])
+            account_status = AccStat(data["acc_status"])
+            created_at = datetime.fromisoformat(data["created_at"])
 
-            allowed_statuses = {
-                account_status.value for account_status in AccStat
-            }
+            return cls(
+                id=account_id,
+                acc_name=account_name,
+                acc_type=account_type,
+                created_at=created_at,
+                acc_status=account_status,
+            )
 
-            if status not in allowed_statuses:
-                raise StorageCorruptedError(
-                    f"Invalid stored account status: '{status}'."
-                )
+        except Exception as exc:
+            if isinstance(exc, DataIntegrityError):
+                raise
 
-            instance._acc_status = status
-
-        return instance
+            raise DataIntegrityError(
+                f"Invalid persisted account data: {exc}"
+            ) from exc
 
     def to_dict(self) -> AccDict:
-        """Converts the Account instance into a serializable dictionary."""
+        """Convert the account into its JSON-compatible dictionary."""
 
         return {
             "id": self.id,
             "acc_name": self.acc_name,
-            "acc_type": self.acc_type,
-            "acc_status": self.acc_status,
+            "acc_type": self.acc_type.value,
+            "acc_status": self.acc_status.value,
             "created_at": self.created_at.isoformat(),
         }

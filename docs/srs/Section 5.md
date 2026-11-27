@@ -125,10 +125,15 @@ wallet_manager/
 │   └── enums.py                # Account and transaction enums
 │
 ├── services/                   # Business Logic Tier
-│   ├── __init__.py
-│   ├── wallet_engine.py        # Main coordinator for core workflows
-│   ├── reporting.py            # Financial aggregation and report generation
-│   └── query_service.py        # Filtering, searching, sorting, pagination
+│   └── wallet_engine/
+│       ├── __init__.py
+│       ├── engine.py
+│       ├── accounts.py
+│       ├── transactions.py
+│       ├── ledger.py
+│       ├── reports.py
+│       ├── validation.py
+│       └── identifiers.py
 │
 ├── file_manager/               # Data Access Tier
 │   ├── __init__.py

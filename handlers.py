@@ -31,7 +31,7 @@ from ui.menu_states import AccDashState
 from models.types import FundedAccDict
 
 if TYPE_CHECKING:
-    from services.wallet_engine import WalletEngine
+    from services.wallet_engine.engine_old import WalletEngine
     from models.account import Account
 
 def create_account(

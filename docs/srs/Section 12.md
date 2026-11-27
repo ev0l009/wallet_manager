@@ -19,7 +19,6 @@ The following rules consolidate the most important implementation constraints an
 15. **Expense categories:** Permitted expense categories must be centrally defined and validated through the Business Logic Layer.
 16. **Transaction immutability:** Historical transaction records must never be directly edited or deleted.
 17. **Transaction correction:** Incorrect financial transactions must be corrected through compensating REVERSAL transactions.
-18. **Reversal integrity:** A transaction may be reversed only once, and every reversal must reference its original transaction.
 19. **Reporting integrity:** Reversed original transactions and their corresponding reversals must not distort ordinary income and expense totals.
 20. **Transaction capacity:** The JSON ledger must enforce the maximum supported capacity of 10,000 historical transaction records.
 21. **Layer separation:** The Presentation Layer must not perform financial calculations or access persistence files directly.

@@ -15,7 +15,7 @@ from exceptions.errors import (
     InvalidAccountTypeError,
 )
 
-from services.wallet_engine.identifiers import (
+from .identifiers import (
     generate_id,
     ACC_ID_PREFIX,
 )

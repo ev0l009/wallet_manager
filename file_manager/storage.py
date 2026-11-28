@@ -7,6 +7,8 @@ file replacement when saving application state.
 
 import json
 import os
+import warnings
+
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,7 @@ from models.types import JSONData, WalletEngineData
 # Resolve the database directory relative to the project root.
 DB_DIR = Path(__file__).resolve().parent.parent / "db"
 FILE_PATH = DB_DIR / "data.json"
+TEMP_FILE_PATH = FILE_PATH.with_suffix(".json.tmp")
 
 
 def initialize() -> None:
@@ -31,10 +34,27 @@ def initialize() -> None:
 
     try:
         DB_DIR.mkdir(parents=True, exist_ok=True)
+
     except OSError as exc:
         raise StorageWriteError(
             "Unable to initialize the database directory."
         ) from exc
+
+
+def _cleanup_temp_file() -> None:
+    """Remove a stale temporary file and warn if cleanup fails."""
+
+    try:
+        if TEMP_FILE_PATH.exists():
+            TEMP_FILE_PATH.unlink()
+
+    except OSError as exc:
+        warnings.warn(
+            f"Unable to remove stale temporary file "
+            f"'{TEMP_FILE_PATH}': {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
 
 def save_app_data(tracker_data: WalletEngineData) -> None:
@@ -44,8 +64,6 @@ def save_app_data(tracker_data: WalletEngineData) -> None:
         "accounts": {},
         "transactions": [],
     }
-
-    temp_file_path = FILE_PATH.with_suffix(".json.tmp")
 
     try:
         # Delegate entity serialization to the domain models.
@@ -59,18 +77,22 @@ def save_app_data(tracker_data: WalletEngineData) -> None:
 
         initialize()
 
-        with temp_file_path.open("w", encoding="utf-8") as file:
+        with TEMP_FILE_PATH.open("w", encoding="utf-8") as file:
             json.dump(
                 serialized_data,
                 file,
                 indent=4,
                 ensure_ascii=False,
             )
+
             file.flush()
             os.fsync(file.fileno())
 
         # Replace the previous file only after writing succeeds.
-        os.replace(temp_file_path, FILE_PATH)
+        os.replace(TEMP_FILE_PATH, FILE_PATH)
+
+    except StorageWriteError:
+        raise
 
     except Exception as exc:
         raise StorageWriteError(
@@ -79,15 +101,14 @@ def save_app_data(tracker_data: WalletEngineData) -> None:
 
     finally:
         # Remove an incomplete temporary file if one remains.
-        try:
-            if temp_file_path.exists():
-                temp_file_path.unlink()
-        except OSError:
-            pass
+        _cleanup_temp_file()
 
 
 def load_app_data() -> WalletEngineData:
     """Load application data and reconstruct domain entities."""
+
+    # Remove any temporary file left by an interrupted previous write.
+    _cleanup_temp_file()
 
     empty_data: WalletEngineData = {
         "accounts": {},

@@ -203,6 +203,11 @@ class WalletEngine:
 
         return transactions.get_transaction(self.data, trx_id)
 
+    def get_transaction_capacity_warning(self) -> str | None:
+        """Return the applicable transaction capacity warning."""
+
+        return transactions.get_transaction_capacity_warning(self.data)
+
     def record_income(
         self,
         acc_id: str,

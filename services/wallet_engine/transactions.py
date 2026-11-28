@@ -12,6 +12,7 @@ from utils.validators import (
 from exceptions.errors import (
     EntityNotFoundError,
     InvalidCategoryError,
+    TransactionCapacityExceededError,
 )
 
 from services.wallet_engine.accounts import get_active_account
@@ -26,6 +27,50 @@ from services.wallet_engine.ledger import (
 )
 
 
+# Transaction capacity thresholds.
+TRANSACTION_WARNING_THRESHOLD = 4_000
+TRANSACTION_REASSESSMENT_THRESHOLD = 5_000
+MAX_TRANSACTIONS = 10_000
+
+
+def _check_transaction_capacity(data: WalletEngineData) -> None:
+    """Reject new transactions when the absolute capacity is reached."""
+
+    if len(data["transactions"]) >= MAX_TRANSACTIONS:
+        raise TransactionCapacityExceededError(
+            f"The transaction limit of {MAX_TRANSACTIONS:,} "
+            "has been reached. No additional transactions can be recorded."
+        )
+
+
+def get_transaction_capacity_warning(
+    data: WalletEngineData,
+) -> str | None:
+    """Return the applicable transaction capacity warning, if any."""
+
+    transaction_count = len(data["transactions"])
+
+    if transaction_count >= MAX_TRANSACTIONS:
+        return (
+            f"The maximum transaction capacity of {MAX_TRANSACTIONS:,} "
+            "has been reached."
+        )
+
+    if transaction_count >= TRANSACTION_REASSESSMENT_THRESHOLD:
+        return (
+            f"The application contains {transaction_count:,} transactions. "
+            "Reassess the application architecture and storage approach."
+        )
+
+    if transaction_count >= TRANSACTION_WARNING_THRESHOLD:
+        return (
+            f"The application contains {transaction_count:,} transactions. "
+            "The operational capacity warning threshold has been reached."
+        )
+
+    return None
+
+
 def record_income(
     data: WalletEngineData,
     acc_id: str,
@@ -35,6 +80,7 @@ def record_income(
 ) -> tuple[WalletEngineData, Transaction]:
     """Record income into an account."""
 
+    _check_transaction_capacity(data)
     get_active_account(data, acc_id)
 
     transaction = Transaction(
@@ -74,6 +120,7 @@ def record_expense(
 ) -> tuple[WalletEngineData, Transaction]:
     """Record an expense from an account."""
 
+    _check_transaction_capacity(data)
     get_active_account(data, acc_id)
 
     try:
@@ -120,6 +167,7 @@ def record_transfer(
 ) -> tuple[WalletEngineData, Transaction]:
     """Transfer funds between two accounts."""
 
+    _check_transaction_capacity(data)
     get_active_account(data, source_acc_id)
     get_active_account(data, target_acc_id)
 

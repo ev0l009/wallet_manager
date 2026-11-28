@@ -243,6 +243,9 @@ class Transaction:
                 target_acc_id=data.get("target_acc_id"),
             )
 
+        except DataIntegrityError:
+            raise
+
         except (KeyError, TypeError, ValueError, WalletError) as exc:
             raise DataIntegrityError(
                 f"Invalid persisted transaction data: {exc}"

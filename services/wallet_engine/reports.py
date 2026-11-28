@@ -7,6 +7,8 @@ from models.types import WalletEngineData
 from services.wallet_engine.accounts import get_account
 from services.wallet_engine.ledger import get_account_transactions
 
+from exceptions.errors import DataIntegrityError
+
 
 def _build_report(
     transactions: list[Transaction],
@@ -32,6 +34,12 @@ def _build_report(
     for transaction in transactions:
         if transaction.transaction_type != TrxType.EXPENSE:
             continue
+
+        if transaction.category is None:
+            raise DataIntegrityError(
+                f"Expense transaction '{transaction.id}' "
+                "has no category."
+            )
 
         category = transaction.category.value
 

@@ -14,6 +14,8 @@ import sys
 
 from services.wallet_engine import WalletEngine
 
+from exceptions.errors import WalletError
+
 from ui.menu_states import MenuState
 
 from ui.menus import (
@@ -34,21 +36,17 @@ from handlers import (
 from utils.logger import configure_logger
 
 
-# Initialize the application-wide logger.
 logger = configure_logger()
 
 
 def wallet_runner() -> None:
     """Initialize and execute the main application loop."""
 
-    # Initialize the wallet engine and load persisted application data.
     wallet = WalletEngine()
     wallet.load()
 
-    # Start the application at the main dashboard.
     current_state = MenuState.DASHBOARD
 
-    # Main application loop.
     while True:
 
         if current_state == MenuState.DASHBOARD:
@@ -71,8 +69,15 @@ def wallet_runner() -> None:
             acc_map = wallet.get_inactive_acc_map()
             selected_acc = select_acc(acc_map)
 
-            if selected_acc:
-                wallet.reactivate_acc(selected_acc)
+            if selected_acc is not None:
+                try:
+                    wallet.reactivate_acc(selected_acc)
+
+                except WalletError as err:
+                    print(err)
+
+                else:
+                    print("\n  [✓] Account reactivated successfully.")
 
             current_state = MenuState.DASHBOARD
 

@@ -73,7 +73,10 @@ def record_transfer(
 ) -> None:
     """Collect transfer details and record a transfer."""
 
-    source_acc_id = select_acc(acc_map)
+    source_acc_id = select_acc(
+        acc_map,
+        heading="SELECT SOURCE ACCOUNT",
+    )
 
     if source_acc_id is None:
         return
@@ -81,6 +84,7 @@ def record_transfer(
     target_acc_id = select_acc(
         acc_map=acc_map,
         id_to_skip=source_acc_id,
+        heading="SELECT DESTINATION ACCOUNT",
     )
 
     if target_acc_id is None:
@@ -174,7 +178,7 @@ def manage_account(wallet_instance: WalletEngine) -> None:
 
     selected_acc_id = select_acc(acc_map)
 
-    if not selected_acc_id:
+    if selected_acc_id is None:
         return
 
     acc = wallet_instance.get_account(selected_acc_id)

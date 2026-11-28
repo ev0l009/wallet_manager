@@ -1,16 +1,25 @@
+"""Application logging configuration."""
+
 import logging
+
 from pathlib import Path
 
 
-def configure_logger():
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOG_DIRECTORY = PROJECT_ROOT / "logs"
+LOG_FILE = LOG_DIRECTORY / "wallet_manager.log"
 
-    log_directory = Path("logs")
-    log_directory.mkdir(exist_ok=True)
 
-    log_file = log_directory / "wallet_manager.log"
+def configure_logger() -> logging.Logger:
+    """Configure and return the application logger."""
+
+    LOG_DIRECTORY.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     logging.basicConfig(
-        filename=log_file,
+        filename=LOG_FILE,
         level=logging.ERROR,
         format=(
             "%(asctime)s | "
@@ -19,7 +28,7 @@ def configure_logger():
             "%(message)s"
         ),
         datefmt="%Y-%m-%d %H:%M:%S",
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     return logging.getLogger("wallet_manager")

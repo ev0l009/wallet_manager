@@ -15,18 +15,18 @@ from file_manager.storage import (
     load_app_data,
 )
 
-from services.wallet_engine import accounts
-from services.wallet_engine import transactions
-from services.wallet_engine import ledger
-from services.wallet_engine import reports
+from . import accounts
+from . import transactions
+from . import ledger
+from . import reports
 
-from services.wallet_engine.identifiers import (
+from .identifiers import (
     generate_id,
     ACC_ID_PREFIX,
     TRX_ID_PREFIX,
 )
 
-from services.wallet_engine.validation import validate_loaded_data
+from .validation import validate_loaded_data
 
 
 class WalletEngine:

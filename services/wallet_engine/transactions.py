@@ -15,14 +15,14 @@ from exceptions.errors import (
     TransactionCapacityExceededError,
 )
 
-from services.wallet_engine.accounts import get_active_account
+from .accounts import get_active_account
 
-from services.wallet_engine.identifiers import (
+from .identifiers import (
     generate_id,
     TRX_ID_PREFIX,
 )
 
-from services.wallet_engine.ledger import (
+from .ledger import (
     calculate_chronological_balances,
 )
 

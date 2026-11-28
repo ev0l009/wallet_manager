@@ -83,7 +83,7 @@ class EntityNotFoundError(WalletError):
 
 # --- DATA INTEGRITY ERRORS ---
 class DataIntegrityError(WalletError):
-    """Raised when persisted application data violates integrity rules."""
+    """Raised when application data violates integrity requirements."""
     pass
 
 

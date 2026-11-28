@@ -1,27 +1,25 @@
+"""Presentation menus for application navigation and user selection."""
+
 from ui.menu_states import MenuState, AccDashState
+
 from models.enums import (
     AccType,
-    ExpCatOpts
+    ExpCatOpts,
 )
 
 
 def get_main_menu_state() -> MenuState:
-    """Displays the main menu and captures the next navigation state.
+    """Display the main menu and capture the next navigation state."""
 
-    Returns:
-        MenuState: The selected navigation state.
-            Returns MenuState.DASHBOARD if the selection is invalid.
-    """
     options = {
         "1": MenuState.CREATE_ACCOUNT,
         "2": MenuState.LIST_ACCOUNTS,
         "3": MenuState.TRANSFER,
         "4": MenuState.ACC_DASHBOARD,
         "5": MenuState.TRANSACTIONS,
-        "6": MenuState.REVERSE_TRANSACTION,
-        "7": MenuState.REACTIVATE_ACC,
-        "8": MenuState.REPORTS,
-        "9": MenuState.EXIT,
+        "6": MenuState.REACTIVATE_ACC,
+        "7": MenuState.REPORTS,
+        "8": MenuState.EXIT,
     }
 
     print("\n  FINANCE TRACKER")
@@ -31,10 +29,9 @@ def get_main_menu_state() -> MenuState:
     print("  3. Transfer Funds")
     print("  4. Inspect Account")
     print("  5. Transactions")
-    print("  6. Reverse Transactions")
-    print("  7. Reactivate Account")
-    print("  8. Reports")
-    print("  9. Exit\n")
+    print("  6. Reactivate Account")
+    print("  7. Reports")
+    print("  8. Exit\n")
 
     choice = input("  Select option (1-8) → ").strip()
 
@@ -46,17 +43,13 @@ def get_main_menu_state() -> MenuState:
 
 
 def get_acc_type() -> str | None:
-    """Prompts the user to select an account classification.
+    """Prompt the user to select an account classification."""
 
-    Returns:
-        str: The selected account type.
-        None: If the selection is invalid.
-    """
     options = {
         "1": AccType.BANK.value,
         "2": AccType.CASH.value,
         "3": AccType.SAVINGS.value,
-        "4": AccType.MOBILE.value,
+        "4": AccType.MOBILE_WALLET.value,
     }
 
     print("\n  SELECT ACCOUNT TYPE")
@@ -76,21 +69,18 @@ def get_acc_type() -> str | None:
 
 
 def get_acc_dash_state(acc_name: str) -> AccDashState:
-    """Displays the individual account inspection actions sub-menu.
+    """Display the individual account inspection menu."""
 
-    Args:
-        acc_name: The descriptive name of the account under inspection.
-
-    Returns:
-        AccDashState: The selected account dashboard navigation state.
-            Returns AccDashState.ACC_DASH if the selection is invalid.
-    """
     options = {
         "1": AccDashState.BALANCE,
         "2": AccDashState.DEPOSIT,
         "3": AccDashState.WITHDRAWAL,
-        "4": AccDashState.DEACTIVATE,
-        "5": AccDashState.RETURN,
+        "4": AccDashState.UPDATE_ACC,
+        "5": AccDashState.ACCOUNT_TRANSACTIONS,
+        "6": AccDashState.ACCOUNT_INFO,
+        "7": AccDashState.ACCOUNT_REPORTS,
+        "8": AccDashState.DEACTIVATE,
+        "9": AccDashState.RETURN,
     }
 
     print(f"\n  ACCOUNT: {acc_name.upper()}")
@@ -98,10 +88,14 @@ def get_acc_dash_state(acc_name: str) -> AccDashState:
     print("  1. Check Balance")
     print("  2. Deposit")
     print("  3. Withdraw")
-    print("  4. Deactivate Account")
-    print("  5. Main Menu\n")
+    print("  4. Update Account Name")
+    print("  5. View Transactions")
+    print("  6. Account Information")
+    print("  7. Account Reports")
+    print("  8. Deactivate Account")
+    print("  9. Main Menu\n")
 
-    choice = input("  Select option (1-5) → ").strip()
+    choice = input("  Select option (1-9) → ").strip()
 
     if choice not in options:
         print("\n  [!] Invalid choice. Please try again.")
@@ -115,18 +109,10 @@ def select_acc(
     id_to_skip: str | None = None,
     heading: str | None = None,
 ) -> str | None:
-    """Displays a dynamically numbered list of accounts for selection.
+    """Display accounts and capture the user's selection."""
 
-    Args:
-        acc_map: Mapping of account IDs to account names.
-        id_to_skip: Optional account ID to exclude from selection.
-        heading: Optional custom heading for the selection menu.
-
-    Returns:
-        str: The selected account ID.
-        None: If no eligible accounts exist or the selection is invalid.
-    """
     options: dict[str, str] = {}
+
     title_text = heading.upper() if heading else "SELECT ACCOUNT"
 
     print(f"\n  {title_text}")
@@ -135,10 +121,12 @@ def select_acc(
     idx = 1
 
     for acc_id, acc_name in acc_map.items():
+
         if acc_id == id_to_skip:
             continue
 
         print(f"  {idx}. {acc_name.title()}")
+
         options[str(idx)] = acc_id
         idx += 1
 
@@ -147,6 +135,7 @@ def select_acc(
         return None
 
     print()
+
     choice = input(
         f"  Select option (1-{len(options)}) → "
     ).strip()
@@ -159,12 +148,8 @@ def select_acc(
 
 
 def get_exp_category() -> str | None:
-    """Presents recognized expense categorization options.
+    """Present expense categories and capture the user's selection."""
 
-    Returns:
-        str: The selected expense category.
-        None: If the selection is invalid.
-    """
     cat_options = {
         "1": ExpCatOpts.FOOD.value,
         "2": ExpCatOpts.BILLS.value,
@@ -176,12 +161,14 @@ def get_exp_category() -> str | None:
         "8": ExpCatOpts.OTHERS.value,
     }
 
-    print("\n  Select category:")
+    print("\n  SELECT EXPENSE CATEGORY")
+    print("  " + "—" * 25)
 
-    for idx, cat in cat_options.items():
-        print(f"  {idx}. {cat.capitalize()}")
+    for idx, category in cat_options.items():
+        print(f"  {idx}. {category.capitalize()}")
 
     print()
+
     choice = input(
         f"  Select option (1-{len(cat_options)}) → "
     ).strip()

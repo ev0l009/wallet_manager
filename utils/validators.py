@@ -1,63 +1,71 @@
+"""Input validation and monetary conversion utilities."""
+
+import re
+
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
 from exceptions.errors import (
     InvalidAccountNameError,
     DuplicateAccountNameError,
     InvalidDateError,
-    InvalidAmountError
+    InvalidAmountError,
 )
 
-from datetime import datetime, date
-
-import re
-from decimal import Decimal, InvalidOperation
 
 def convert_to_kobo(user_input: str) -> int:
-    if not isinstance(user_input, str): # type: ignore
-        raise InvalidAmountError()
+    """Validate a monetary input and convert it to integer Kobo."""
+
+    if not isinstance(user_input, str):
+        raise InvalidAmountError(
+            "Amount must be provided as a string."
+        )
 
     value = user_input.strip()
 
     if not re.fullmatch(r"\d+(?:\.\d{1,2})?", value):
-        raise InvalidAmountError()
+        raise InvalidAmountError(
+            "Amount must be a positive monetary value "
+            "with at most two decimal places."
+        )
 
     try:
         amount = Decimal(value)
 
-        if not amount.is_finite() or amount <= 0:
-            raise InvalidAmountError()
+    except InvalidOperation as exc:
+        raise InvalidAmountError(
+            "Invalid monetary amount."
+        ) from exc
 
-        if amount > Decimal("99999999.99"):
-            raise InvalidAmountError()
+    if not amount.is_finite() or amount <= 0:
+        raise InvalidAmountError(
+            "Amount must be greater than zero."
+        )
 
-        return int(amount * 100)
+    if amount > Decimal("99999999.99"):
+        raise InvalidAmountError(
+            "Amount cannot exceed ₦99,999,999.99."
+        )
 
-    except InvalidOperation:
-        raise InvalidAmountError()
-    
+    return int(amount * 100)
 
-def get_valid_acc_name(raw_name: str, existing_names: dict[str, str]) -> str:
-    """Collect and validate a new account name.
 
-    Args:
-        existing_names: Mapping of account IDs to existing account names.
+def get_valid_acc_name(
+    raw_name: str,
+    existing_names: dict[str, str],
+) -> str:
+    """Validate and normalize an account name."""
 
-    Returns:
-        str: Normalized and validated account name.
-
-    Raises:
-        InvalidAccountNameError: If the name violates naming constraints.
-        DuplicateAccountNameError: If the name already exists.
-    """
+    if not isinstance(raw_name, str):
+        raise InvalidAccountNameError(
+            "Account name must be a string."
+        )
 
     cleaned_name = raw_name.strip()
 
-    if not cleaned_name:
+    if not 4 <= len(cleaned_name) <= 20:
         raise InvalidAccountNameError(
-            "Account name cannot be empty."
-        )
-
-    if len(cleaned_name) < 4:
-        raise InvalidAccountNameError(
-            "Account name must contain at least 4 characters."
+            "Account name must contain between 4 and 20 characters."
         )
 
     normalized_name = cleaned_name.casefold()
@@ -74,9 +82,14 @@ def get_valid_acc_name(raw_name: str, existing_names: dict[str, str]) -> str:
 
     return cleaned_name
 
+
 def get_valid_date(raw_date: str) -> date:
+    """Validate and parse a transaction date."""
+
     if not isinstance(raw_date, str):
-        raise InvalidDateError("Date must be a string.")
+        raise InvalidDateError(
+            "Date must be a string."
+        )
 
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date):
         raise InvalidDateError(
@@ -85,13 +98,14 @@ def get_valid_date(raw_date: str) -> date:
 
     try:
         parsed_date = datetime.strptime(
-            raw_date, "%Y-%m-%d"
+            raw_date,
+            "%Y-%m-%d",
         ).date()
 
-    except ValueError as err:
+    except ValueError as exc:
         raise InvalidDateError(
             f"'{raw_date}' is not a valid calendar date."
-        ) from err
+        ) from exc
 
     if parsed_date > date.today():
         raise InvalidDateError(

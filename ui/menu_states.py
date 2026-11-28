@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class MenuState(Enum):
     """Application-level navigation states for the primary loop."""
 
@@ -10,9 +11,9 @@ class MenuState(Enum):
     TRANSFER = "transfer"
     ACC_DASHBOARD = "acc_dashboard"
     TRANSACTIONS = "transactions"
-    REVERSE_TRANSACTION = "reverse_transaction"
     REPORTS = "reports"
     REACTIVATE_ACC = "reactivate"
+
 
 class AccDashState(Enum):
     """Navigation states for individual account inspection dashboards."""

@@ -4,8 +4,8 @@ from models.transaction import Transaction
 from models.enums import TrxType
 from models.types import WalletEngineData
 
-from services.wallet_engine.accounts import get_account
-from services.wallet_engine.ledger import get_account_transactions
+from .accounts import get_account
+from .ledger import get_account_transactions
 
 from exceptions.errors import DataIntegrityError
 

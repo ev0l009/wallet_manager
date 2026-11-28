@@ -72,6 +72,6 @@ def validate_loaded_data(data: WalletEngineData) -> None:
 
     except InsufficientFundsError as exc:
         raise NegativeBalanceError(
-            "Persisted transaction history produces a negative "
+            "Transaction history produces a negative "
             "historical account balance."
         ) from exc

@@ -7,9 +7,11 @@ from models.enums import AccStat, AccType
 from models.types import WalletEngineData
 
 from exceptions.errors import (
+    AccountBalanceNotZeroError,
     DuplicateAccountNameError,
     EntityNotFoundError,
     InactiveAccountError,
+    InvalidAccountNameError,
     InvalidAccountTypeError,
 )
 
@@ -25,6 +27,11 @@ def create_account(
     acc_type: str,
 ) -> tuple[WalletEngineData, Account]:
     """Create an account and return the proposed application state."""
+
+    if not isinstance(acc_name, str):
+        raise InvalidAccountNameError(
+            "Account name must be a string."
+        )
 
     normalized_name = acc_name.strip().casefold()
 
@@ -67,6 +74,12 @@ def rename_account(
     """Rename an account and return the proposed application state."""
 
     account = get_account(data, acc_id)
+
+    if not isinstance(acc_name, str):
+        raise InvalidAccountNameError(
+            "Account name must be a string."
+        )
+
     normalized_name = acc_name.strip().casefold()
 
     for other_account in data["accounts"].values():
@@ -218,8 +231,6 @@ def deactivate_account(
     account = get_active_account(data, acc_id)
 
     if balance != 0:
-        from exceptions.errors import AccountBalanceNotZeroError
-
         raise AccountBalanceNotZeroError(
             "An account must have a zero balance before deactivation."
         )

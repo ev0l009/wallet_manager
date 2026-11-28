@@ -4,21 +4,36 @@ Owns application state and coordinates persistence and business operations.
 Specific workflows are delegated to dedicated wallet_engine modules.
 """
 
+from typing import Final
+
 from models.account import Account
 from models.transaction import Transaction
-from models.enums import TrxType
 from models.types import WalletEngineData
 
-from file_manager.storage import save_app_data, load_app_data
-
-from exceptions.errors import (
-    DataIntegrityError,
-    NegativeBalanceError,
+from file_manager.storage import (
+    save_app_data,
+    load_app_data,
 )
+
+from services.wallet_engine import accounts
+from services.wallet_engine import transactions
+from services.wallet_engine import ledger
+from services.wallet_engine import reports
+
+from services.wallet_engine.identifiers import (
+    generate_id,
+    ACC_ID_PREFIX,
+    TRX_ID_PREFIX,
+)
+
+from services.wallet_engine.validation import validate_loaded_data
 
 
 class WalletEngine:
     """Coordinates business workflows and manages application state."""
+
+    ACC_ID_PREFIX: Final[str] = ACC_ID_PREFIX
+    TRX_ID_PREFIX: Final[str] = TRX_ID_PREFIX
 
     def __init__(self) -> None:
         """Initialize the wallet engine with an empty application state."""
@@ -28,12 +43,16 @@ class WalletEngine:
             "transactions": [],
         }
 
+    # ---------------------------------------------------------
+    # Persistence and state management
+    # ---------------------------------------------------------
+
     def load(self) -> None:
         """Load and validate persisted application data."""
 
         loaded_data = load_app_data()
 
-        self._validate_loaded_data(loaded_data)
+        validate_loaded_data(loaded_data)
 
         # Replace active state only after successful loading and validation.
         self.data = loaded_data
@@ -41,7 +60,7 @@ class WalletEngine:
     def _commit(self, proposed_data: WalletEngineData) -> None:
         """Persist proposed state before committing it in memory."""
 
-        self._validate_loaded_data(proposed_data)
+        validate_loaded_data(proposed_data)
 
         save_app_data(proposed_data)
 
@@ -52,98 +71,254 @@ class WalletEngine:
     def _validate_loaded_data(
         loaded_data: WalletEngineData,
     ) -> None:
-        """Validate entity relationships and historical ledger integrity."""
+        """Validate application data and its financial integrity."""
 
-        accounts = loaded_data["accounts"]
-        transactions = loaded_data["transactions"]
+        validate_loaded_data(loaded_data)
 
-        # Validate account dictionary keys and account-name uniqueness.
-        account_names: set[str] = set()
+    # ---------------------------------------------------------
+    # Identifier generation
+    # ---------------------------------------------------------
 
-        for account_id, account in accounts.items():
-            if account_id != account.id:
-                raise DataIntegrityError(
-                    f"Account dictionary key does not match "
-                    f"account ID '{account.id}'."
-                )
+    def generate_id(self, prefix: str) -> str:
+        """Generate a unique account or transaction identifier."""
 
-            normalized_name = account.acc_name.casefold()
+        return generate_id(prefix, self.data)
 
-            if normalized_name in account_names:
-                raise DataIntegrityError(
-                    f"Duplicate account name: '{account.acc_name}'."
-                )
+    # ---------------------------------------------------------
+    # Account management
+    # ---------------------------------------------------------
 
-            account_names.add(normalized_name)
+    def create_account(
+        self,
+        acc_name: str,
+        acc_type: str,
+    ) -> Account:
+        """Create and register a new account."""
 
-        # Transaction IDs must be unique.
-        transaction_ids: set[str] = set()
-
-        for transaction in transactions:
-            if transaction.id in transaction_ids:
-                raise DataIntegrityError(
-                    f"Duplicate transaction ID: '{transaction.id}'."
-                )
-
-            transaction_ids.add(transaction.id)
-
-            # Validate account references.
-            referenced_account_ids = {
-                transaction.source_acc_id,
-                transaction.target_acc_id,
-            } - {None}
-
-            for account_id in referenced_account_ids:
-                if account_id not in accounts:
-                    raise DataIntegrityError(
-                        f"Transaction '{transaction.id}' references "
-                        f"unknown account '{account_id}'."
-                    )
-
-        # Validate historical balances.
-        # Python's sort is stable, preserving insertion order for
-        # transactions sharing the same financial date.
-        ordered_transactions = sorted(
-            transactions,
-            key=lambda transaction: transaction.transaction_date,
+        proposed_data, account = accounts.create_account(
+            self.data,
+            acc_name,
+            acc_type,
         )
 
-        balances = {
-            account_id: 0
-            for account_id in accounts
-        }
+        self._commit(proposed_data)
 
-        for transaction in ordered_transactions:
-            if transaction.transaction_type == TrxType.INCOME:
-                target_id = transaction.target_acc_id
-                balances[target_id] += transaction.amount
+        return account
 
-            elif transaction.transaction_type == TrxType.EXPENSE:
-                source_id = transaction.source_acc_id
-                balances[source_id] -= transaction.amount
+    def update_account_name(
+        self,
+        acc_id: str,
+        acc_name: str,
+    ) -> Account:
+        """Update an account's name."""
 
-                if balances[source_id] < 0:
-                    raise NegativeBalanceError(
-                        f"Transaction '{transaction.id}' creates a "
-                        f"negative historical balance for account "
-                        f"'{source_id}' on "
-                        f"{transaction.transaction_date}: "
-                        f"{balances[source_id]} Kobo."
-                    )
+        proposed_data, account = accounts.rename_account(
+            self.data,
+            acc_id,
+            acc_name,
+        )
 
-            elif transaction.transaction_type == TrxType.TRANSFER:
-                source_id = transaction.source_acc_id
-                target_id = transaction.target_acc_id
+        self._commit(proposed_data)
 
-                balances[source_id] -= transaction.amount
+        return account
 
-                if balances[source_id] < 0:
-                    raise NegativeBalanceError(
-                        f"Transfer '{transaction.id}' creates a "
-                        f"negative historical balance for account "
-                        f"'{source_id}' on "
-                        f"{transaction.transaction_date}: "
-                        f"{balances[source_id]} Kobo."
-                    )
+    def get_account(self, account_id: str) -> Account:
+        """Retrieve an account by ID."""
 
-                balances[target_id] += transaction.amount
+        return accounts.get_account(self.data, account_id)
+
+    def get_active_accounts(self) -> list[Account]:
+        """Return all active accounts."""
+
+        return accounts.get_active_accounts(self.data)
+
+    def _get_active_account(self, acc_id: str) -> Account:
+        """Retrieve an account and ensure it is active."""
+
+        return accounts.get_active_account(self.data, acc_id)
+
+    def get_inactive_accounts(self) -> list[Account]:
+        """Return all inactive accounts."""
+
+        return accounts.get_inactive_accounts(self.data)
+
+    def get_all_accounts(self) -> list[Account]:
+        """Return all accounts."""
+
+        return accounts.get_all_accounts(self.data)
+
+    def get_all_acc_map(self) -> dict[str, str]:
+        """Return all account IDs mapped to account names."""
+
+        return accounts.get_all_account_map(self.data)
+
+    def get_active_acc_map(self) -> dict[str, str]:
+        """Return active account IDs mapped to account names."""
+
+        return accounts.get_active_account_map(self.data)
+
+    def get_inactive_acc_map(self) -> dict[str, str]:
+        """Return inactive account IDs mapped to account names."""
+
+        return accounts.get_inactive_account_map(self.data)
+
+    def reactivate_acc(self, acc_id: str) -> Account:
+        """Reactivate an inactive account."""
+
+        proposed_data, account = accounts.reactivate_account(
+            self.data,
+            acc_id,
+        )
+
+        self._commit(proposed_data)
+
+        return account
+
+    def deactivate_acc(self, acc_id: str) -> Account:
+        """Deactivate an active account with a zero balance."""
+
+        balance = self.get_acc_bal(acc_id)
+
+        proposed_data, account = accounts.deactivate_account(
+            self.data,
+            acc_id,
+            balance,
+        )
+
+        self._commit(proposed_data)
+
+        return account
+
+    # ---------------------------------------------------------
+    # Transaction management
+    # ---------------------------------------------------------
+
+    def get_transactions(self) -> list[Transaction]:
+        """Return the complete transaction history."""
+
+        return transactions.get_transactions(self.data)
+
+    def get_transaction(self, trx_id: str) -> Transaction:
+        """Retrieve a transaction by ID."""
+
+        return transactions.get_transaction(self.data, trx_id)
+
+    def record_income(
+        self,
+        acc_id: str,
+        amount: str,
+        desc: str,
+        inp_date: str,
+    ) -> Transaction:
+        """Record income into an account."""
+
+        proposed_data, transaction = transactions.record_income(
+            self.data,
+            acc_id,
+            amount,
+            desc,
+            inp_date,
+        )
+
+        self._commit(proposed_data)
+
+        return transaction
+
+    def record_expense(
+        self,
+        acc_id: str,
+        amount: str,
+        exp_cat: str,
+        desc: str,
+        inp_date: str,
+    ) -> Transaction:
+        """Record an expense from an account."""
+
+        proposed_data, transaction = transactions.record_expense(
+            self.data,
+            acc_id,
+            amount,
+            exp_cat,
+            desc,
+            inp_date,
+        )
+
+        self._commit(proposed_data)
+
+        return transaction
+
+    def record_transfer(
+        self,
+        source_acc_id: str,
+        inp_amt: str,
+        target_acc_id: str,
+        inp_date: str,
+    ) -> Transaction:
+        """Transfer funds between two accounts."""
+
+        proposed_data, transaction = transactions.record_transfer(
+            self.data,
+            source_acc_id,
+            inp_amt,
+            target_acc_id,
+            inp_date,
+        )
+
+        self._commit(proposed_data)
+
+        return transaction
+
+    # ---------------------------------------------------------
+    # Ledger operations
+    # ---------------------------------------------------------
+
+    def get_acc_bal(self, acc_id: str) -> int:
+        """Calculate an account's current balance from its history."""
+
+        self.get_account(acc_id)
+
+        return ledger.calculate_account_balance(
+            self.data["transactions"],
+            acc_id,
+        )
+
+    def get_effective_transactions(self) -> list[Transaction]:
+        """Return the complete transaction history.
+
+        Retained as a compatibility method. Transactions are no longer
+        filtered because the application does not use reversal records.
+        """
+
+        return self.get_transactions()
+
+    def get_acc_transactions(
+        self,
+        acc_id: str,
+    ) -> list[Transaction]:
+        """Return transactions involving the specified account."""
+
+        self.get_account(acc_id)
+
+        return ledger.get_account_transactions(
+            self.data["transactions"],
+            acc_id,
+        )
+
+    # ---------------------------------------------------------
+    # Financial reports
+    # ---------------------------------------------------------
+
+    def get_reports(
+        self,
+    ) -> tuple[int, int, int, dict[str, int]]:
+        """Generate an overall financial summary."""
+
+        return reports.get_reports(self.data)
+
+    def get_account_reports(
+        self,
+        acc_id: str,
+    ) -> tuple[int, int, int, dict[str, int]]:
+        """Generate a financial summary for one account."""
+
+        return reports.get_account_reports(self.data, acc_id)
